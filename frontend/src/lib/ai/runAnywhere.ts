@@ -49,7 +49,7 @@ const MODEL_NAME = 'LFM2 350M Q4_K_M';
 const MODEL_REPO = 'LiquidAI/LFM2-350M-GGUF';
 const MODEL_FILES = ['LFM2-350M-Q4_K_M.gguf'];
 const MAX_SOURCE_CHARACTERS = 3800;
-const MAX_GENERATION_TOKENS = 180;
+const MAX_GENERATION_TOKENS = 512;
 const MAX_CHAT_CONTEXT_CHARACTERS = 3200;
 const MAX_CHAT_HISTORY_TURNS = 8;
 
@@ -142,6 +142,7 @@ const isGenerationResult = (value: unknown): value is GenerationResult => {
     Array.isArray(result.flashcards) &&
     Array.isArray(result.slides) &&
     Array.isArray(result.notes) &&
+    typeof result.followUpEmail === 'string' &&
     typeof result.meta === 'object' &&
     result.meta !== null
   );
@@ -536,6 +537,7 @@ export const generateQuickCopilotResponse = ({
   const slides = deriveSlides(summary, keyPoints);
 
   return {
+    title: `${sourceLabel} / Quick Draft`,
     summary,
     keyPoints,
     actionItems,
@@ -543,6 +545,7 @@ export const generateQuickCopilotResponse = ({
     flashcards,
     slides,
     notes,
+    followUpEmail: 'Quick draft does not include an email. Run the full refinement.',
     meta: {
       engine: 'Quick Local Draft',
       runtime,
@@ -566,6 +569,9 @@ const normalizeResult = (
     sourceLabel: string;
   },
 ): GenerationResult => {
+  const title = typeof raw.title === 'string' && raw.title.trim().length > 0 
+    ? raw.title.trim() 
+    : `${sourceLabel} / ${sourceType}`;
   const summary = typeof raw.summary === 'string' ? raw.summary.trim() : '';
   const keyPointsSource = raw.key_points ?? raw.keyPoints;
   const actionItemsSource = raw.action_items ?? raw.actionItems;
@@ -610,15 +616,48 @@ const normalizeResult = (
         .slice(0, 3)
     : [];
 
+  const flashcardsSource = raw.flashcards;
+  const slidesSource = raw.slides;
+  const emailSource = raw.follow_up_email ?? raw.followUpEmail;
+
   if (!summary) {
     throw new Error('RunAnywhere did not return the required `summary` field.');
   }
 
+  const followUpEmail = typeof emailSource === 'string' ? emailSource.trim() : '';
+
+  const flashcards = Array.isArray(flashcardsSource)
+    ? flashcardsSource
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const entry = item as Record<string, unknown>;
+          const question = typeof entry.question === 'string' ? entry.question.trim() : '';
+          const answer = typeof entry.answer === 'string' ? entry.answer.trim() : '';
+          return question && answer ? { question, answer } : null;
+        })
+        .filter((item): item is { question: string; answer: string } => item !== null)
+        .slice(0, 4)
+    : [];
+
+  const slides = Array.isArray(slidesSource)
+    ? slidesSource
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const entry = item as Record<string, unknown>;
+          const title = typeof entry.title === 'string' ? entry.title.trim() : '';
+          const points = Array.isArray(entry.points)
+            ? entry.points.map((p) => (typeof p === 'string' ? p.trim() : '')).filter(Boolean)
+            : [];
+          return title && points.length > 0 ? { title, points } : null;
+        })
+        .filter((item): item is { title: string; points: string[] } => item !== null)
+        .slice(0, 4)
+    : [];
+
   const notes = deriveNotes(summary, keyPoints);
-  const flashcards = deriveFlashcards(summary, keyPoints);
-  const slides = deriveSlides(summary, keyPoints);
 
   return {
+    title,
     summary,
     keyPoints,
     actionItems,
@@ -626,6 +665,7 @@ const normalizeResult = (
     flashcards,
     slides,
     notes,
+    followUpEmail,
     meta: {
       engine: 'RunAnywhere SDK',
       runtime,

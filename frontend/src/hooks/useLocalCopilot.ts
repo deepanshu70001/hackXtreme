@@ -2,7 +2,6 @@ import { startTransition, useEffect, useRef } from 'react';
 import {
   formatRunAnywhereError,
   generateCopilotResponse,
-  generateQuickCopilotResponse,
   warmupLocalModel,
 } from '../lib/ai/runAnywhere';
 import { useAppStore } from '../store/useAppStore';
@@ -90,22 +89,11 @@ export const useLocalCopilot = () => {
     setProgress(12);
 
     try {
-      const quickResult = generateQuickCopilotResponse({
-        content: effectiveContent,
-        mode,
-        sourceType,
-        sourceLabel,
-      });
-
-      storedResult = quickResult;
-      startTransition(() => {
-        setResult(quickResult);
-      });
-      setStatus('Quick draft ready. Refining with RunAnywhere...');
+      setStatus('Preparing RunAnywhere model for generation...');
       setProgress(45);
 
       if (!isReady) {
-        setStatus('Quick draft ready. Preparing RunAnywhere model for first full refinement...');
+        setStatus('Preparing RunAnywhere model for first full generation...');
         setProgress(52);
         const state = await warmupLocalModel({
           onProgress: (status, progress) => {
@@ -139,16 +127,14 @@ export const useLocalCopilot = () => {
       const message = formatRunAnywhereError(error);
 
       if (timedOut) {
-        setStatus('Quick draft ready. Full refinement timed out. Try shorter input for deeper AI output.');
+        setStatus('Generation timed out. Try shorter input.');
       } else if (message === 'Generation canceled.') {
-        setStatus('Generation canceled. Quick draft retained.');
-      } else if (storedResult) {
-        setStatus(`Quick draft ready. Full refinement failed: ${message}`);
+        setStatus('Generation canceled.');
       } else {
         setStatus(message);
       }
 
-      if (!storedResult && message !== 'Generation canceled.') {
+      if (message !== 'Generation canceled.') {
         console.error(error);
         setError(message);
         throw error;
@@ -160,7 +146,7 @@ export const useLocalCopilot = () => {
       }
 
       if (storedResult) {
-        addToHistory(`${storedResult.meta.sourceLabel} / ${mode}`, storedResult);
+        addToHistory(storedResult.title || `${storedResult.meta.sourceLabel} / ${mode}`, storedResult);
       }
 
       setProcessing(false);

@@ -151,29 +151,28 @@ export const InputPanel: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass group relative flex min-h-[360px] flex-1 flex-col gap-6 overflow-hidden rounded-[36px] p-6 md:p-8"
+          className="glass group relative flex min-h-[360px] flex-1 flex-col gap-6 overflow-hidden rounded-3xl p-6 md:p-8"
         >
-          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-            <Sparkles className="w-16 h-16 text-accent-tertiary" />
+          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+            <Sparkles className="w-16 h-16 text-white" />
           </div>
-          <div className="pointer-events-none absolute inset-x-8 bottom-0 h-28 rounded-full bg-accent-primary/10 blur-3xl opacity-80" />
 
           <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-              <Type className="w-4 h-4 text-accent-tertiary" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Content Editor</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/5">
+              <Type className="w-3.5 h-3.5 text-white/70" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Editor</span>
             </div>
             
             <div className="flex items-center gap-2">
               <button
                 onClick={clearWorkspace}
-                className="p-2 hover:bg-rose-500/10 rounded-xl text-text-secondary hover:text-rose-500 transition-all"
+                className="p-2 hover:bg-white/10 rounded-xl text-text-secondary hover:text-white transition-all"
                 title="Clear Content"
                 disabled={isProcessing}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-text-secondary" title="Voice input coming soon">
+              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2 text-text-secondary/50 cursor-not-allowed" title="Voice input coming soon">
                 <Mic className="w-4 h-4" />
               </div>
             </div>
@@ -189,44 +188,44 @@ export const InputPanel: React.FC = () => {
                   setSource('text', 'Manual paste');
                 }
               }}
-              placeholder="Optional editor: paste notes, transcript, or source text. If empty, generation uses attached PDF/YouTube source."
-              className="custom-scrollbar h-full w-full resize-none bg-transparent text-sm leading-8 text-white/90 focus:outline-none placeholder:text-text-secondary/35 md:text-base"
+              placeholder="Paste notes, transcript, or type here. If empty, generation uses the selected source file."
+              className="custom-scrollbar h-full w-full resize-none bg-transparent text-sm leading-8 text-white/90 focus:outline-none placeholder:text-text-secondary/30 md:text-base font-light"
             />
           </div>
 
           {usingAttachedSource && (
-            <div className="relative z-10 rounded-2xl border border-accent-primary/20 bg-accent-primary/10 px-4 py-3 text-xs leading-6 text-sky-100">
-              Editor is empty. Generation will use attached source: <span className="font-semibold">{sourceLabel}</span>.
+            <div className="relative z-10 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs leading-6 text-white/80">
+              Editor is empty. Generation will use attached source: <span className="font-semibold text-white">{sourceLabel}</span>.
             </div>
           )}
 
           {error && (
-            <div className="relative z-10 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-100">
+            <div className="relative z-10 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-200">
               {error}
             </div>
           )}
 
           <div className="relative z-10 flex flex-col gap-4 border-t border-white/5 pt-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Characters</span>
-                <span className="text-xs font-mono text-white">{deferredCharacterCount}</span>
+            <div className="flex flex-wrap items-center gap-5">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Characters</span>
+                <span className="text-xs font-mono text-white/90">{deferredCharacterCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/10" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Words</span>
-                <span className="text-xs font-mono text-white">{deferredWordCount}</span>
+              <div className="w-px h-6 bg-white/5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Words</span>
+                <span className="text-xs font-mono text-white/90">{deferredWordCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/10" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Source</span>
-                <span className="text-xs font-mono text-white">{usingAttachedSource ? `${sourceLabel} (attached)` : sourceLabel}</span>
+              <div className="w-px h-6 bg-white/5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Source</span>
+                <span className="text-xs font-medium text-white/90 truncate max-w-[150px]">{usingAttachedSource ? `${sourceLabel} (attached)` : sourceLabel}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-[10px] font-bold text-accent-tertiary uppercase tracking-widest text-right">
-              <ShieldCheck className="w-4 h-4" />
-              AI stays local
+            <div className="flex items-center gap-2 text-[9px] font-semibold text-text-secondary uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5 opacity-70" />
+              On-device Processing
             </div>
           </div>
         </motion.div>
@@ -236,14 +235,13 @@ export const InputPanel: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          whileHover={{ scale: 1.02, boxShadow: "0 0 40px rgba(59,130,246,0.2)" }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.01, boxShadow: "0 0 30px rgba(255,255,255,0.05)" }}
+          whileTap={{ scale: 0.99 }}
           onClick={isProcessing ? cancelProcessing : handleProcess}
           disabled={!isProcessing && !hasAnySource}
-          className="relative group overflow-hidden rounded-[30px] bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary p-5 text-sm font-black uppercase tracking-[0.28em] text-white shadow-[0_24px_50px_rgba(20,184,166,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="relative group overflow-hidden rounded-2xl bg-white text-black p-4 text-sm font-bold uppercase tracking-widest shadow-xl disabled:cursor-not-allowed disabled:opacity-50 transition-all border border-transparent hover:bg-gray-100"
         >
-          <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
-          <div className="relative flex items-center justify-center gap-4">
+          <div className="relative flex items-center justify-center gap-3">
             <AnimatePresence mode="wait">
               {isProcessing ? (
                 <motion.div
@@ -251,10 +249,10 @@ export const InputPanel: React.FC = () => {
                   initial={{ opacity: 0, rotate: -180 }}
                   animate={{ opacity: 1, rotate: 0 }}
                   exit={{ opacity: 0, rotate: 180 }}
-                  className="flex items-center gap-3"
+                  className="flex items-center gap-2"
                 >
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <Square className="w-4 h-4 fill-current" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Square className="w-3.5 h-3.5 fill-current" />
                 </motion.div>
               ) : (
                 <motion.div
@@ -263,7 +261,7 @@ export const InputPanel: React.FC = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.5 }}
                 >
-                  <Sparkles className="w-6 h-6" />
+                  <Sparkles className="w-5 h-5" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -282,7 +280,7 @@ export const InputPanel: React.FC = () => {
           </div>
           <div className="space-y-1 text-sm text-text-secondary leading-relaxed">
             <p className="text-white font-semibold">Hackathon MVP scope</p>
-            <p>Summary, action items, flashcards, and PPT outline are generated from text, PDF, and pasted YouTube transcripts using only the browser SDK.</p>
+            <p>Summary, action items, follow-up emails, flashcards, and PPT outline are generated from text, PDF, and pasted YouTube transcripts using only the browser SDK.</p>
           </div>
         </motion.div>
       </div>

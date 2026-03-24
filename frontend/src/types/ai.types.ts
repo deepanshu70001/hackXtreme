@@ -39,6 +39,7 @@ export interface ResultMeta {
 }
 
 export interface GenerationResult {
+  title: string;
   summary: string;
   keyPoints: string[];
   actionItems: ActionItem[];
@@ -46,6 +47,7 @@ export interface GenerationResult {
   flashcards: Flashcard[];
   slides: Slide[];
   notes: string[];
+  followUpEmail: string;
   meta: ResultMeta;
 }
 

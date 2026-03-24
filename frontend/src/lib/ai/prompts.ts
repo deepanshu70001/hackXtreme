@@ -13,10 +13,14 @@ const SOURCE_GUIDANCE: Record<SourceType, string> = {
 };
 
 export const OUTPUT_JSON_SHAPE = `{
+  "title": "A 3-5 word dynamic title reflecting the core topic",
   "summary": "2-3 short sentences",
   "key_points": ["max 4 items"],
   "action_items": [{"task": "...", "priority": "high|medium|low", "deadline": "optional"}],
-  "deadlines": [{"label": "...", "due": "...", "confidence": "explicit|inferred"}]
+  "deadlines": [{"label": "...", "due": "...", "confidence": "explicit|inferred"}],
+  "follow_up_email": "A professional follow-up email draft based on the content",
+  "flashcards": [{"question": "...", "answer": "..."}],
+  "slides": [{"title": "...", "points": ["..."]}]
 }`;
 
 export const buildRunAnywherePrompt = ({
@@ -35,10 +39,14 @@ Source: ${sourceType.toUpperCase()} - ${SOURCE_GUIDANCE[sourceType]}
 Output rules:
 - Return JSON only.
 - Keep the result compact and high-signal.
+- title: A dynamic, 3 to 5 word title reflecting the specific content.
 - summary: 2 to 3 short sentences.
 - key_points: max 4 items.
 - action_items: max 4 items.
 - deadlines: max 3 items.
+- follow_up_email: professional follow up email draft.
+- flashcards: max 4 items.
+- slides: max 4 items.
 - If there are no deadlines, return [].
 
 Return strictly valid JSON that matches:

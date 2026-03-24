@@ -45,6 +45,9 @@ const getOCRWorker = async (): Promise<OCRWorker> => {
       const Tesseract = await import('tesseract.js');
       const worker = await Tesseract.createWorker('eng', Tesseract.OEM.LSTM_ONLY, {
         logger: () => undefined,
+        workerPath: '/tesseract/worker.min.js',
+        corePath: '/tesseract/tesseract-core.wasm.js',
+        langPath: '/tesseract/lang-data',
       });
       return worker as OCRWorker;
     })();

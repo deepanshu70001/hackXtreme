@@ -47,11 +47,13 @@ export const exportToText = (data: GenerationResult, fileName: string) => {
     data.slides.length > 0
       ? data.slides.map((slide) => `${slide.title}\n${slide.points.map((point) => `- ${point}`).join('\n')}`).join('\n\n')
       : 'None';
+  const emailContent = data.followUpEmail?.trim() || 'None';
   const text = [
     `SUMMARY\n=======\n${data.summary}\n`,
     `KEY POINTS\n==========\n${data.keyPoints.length > 0 ? data.keyPoints.join('\n') : 'None'}\n`,
     `ACTION ITEMS\n============\n${actionLines}\n`,
     `DEADLINES\n=========\n${deadlineLines}\n`,
+    `FOLLOW-UP EMAIL\n===============\n${emailContent}\n`,
     `FLASHCARDS\n==========\n${flashcardLines}\n`,
     `SLIDES\n======\n${slideLines}`,
   ].join('\n');
