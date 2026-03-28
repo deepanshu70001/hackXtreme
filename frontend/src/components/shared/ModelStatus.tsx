@@ -48,7 +48,7 @@ export const ModelStatus: React.FC = () => {
 
         {hasFailure && (
           <div className="rounded-full border border-rose-400/15 bg-rose-400/10 px-3 py-1.5 text-[11px] font-medium text-rose-100">
-            Restart the dev server after this patch to reload the SDK assets.
+            Full local model is unavailable in this browser session. Quick fallback generation is still available.
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { startTransition, useEffect, useRef } from 'react';
 import {
   formatRunAnywhereError,
   generateCopilotResponse,
+  generateQuickCopilotResponse,
   warmupLocalModel,
 } from '../lib/ai/runAnywhere';
 import { useAppStore } from '../store/useAppStore';
@@ -10,6 +11,7 @@ import { GenerationResult } from '../types/ai.types';
 
 const MAX_REFINEMENT_MS_READY = 35_000;
 const MAX_REFINEMENT_MS_COLD_START = 120_000;
+const QUICK_FALLBACK_ERROR_PATTERN = /download|network|fetch|unavailable|cross-origin|module script/i;
 
 export const useLocalCopilot = () => {
   const { input, sourceContent, mode, sourceType, sourceLabel, setProcessing, setResult, addToHistory, setError } =
@@ -125,16 +127,32 @@ export const useLocalCopilot = () => {
       setProgress(100);
     } catch (error) {
       const message = formatRunAnywhereError(error);
+      const shouldFallbackToQuickDraft =
+        !timedOut && message !== 'Generation canceled.' && QUICK_FALLBACK_ERROR_PATTERN.test(message);
 
       if (timedOut) {
         setStatus('Generation timed out. Try shorter input.');
       } else if (message === 'Generation canceled.') {
         setStatus('Generation canceled.');
+      } else if (shouldFallbackToQuickDraft) {
+        const quickFallback = generateQuickCopilotResponse({
+          content: effectiveContent,
+          mode,
+          sourceType,
+          sourceLabel,
+        });
+        storedResult = quickFallback;
+        startTransition(() => {
+          setResult(quickFallback);
+        });
+        setStatus('RunAnywhere unavailable. Generated a quick local draft fallback.');
+        setProgress(100);
+        setError(null);
       } else {
         setStatus(message);
       }
 
-      if (message !== 'Generation canceled.') {
+      if (message !== 'Generation canceled.' && !shouldFallbackToQuickDraft) {
         console.error(error);
         setError(message);
         throw error;
