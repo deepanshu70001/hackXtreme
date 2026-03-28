@@ -786,9 +786,10 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
 
       reportProgress(onProgress, 'Initializing RunAnywhere core', 20);
       await RunAnywhere.initialize({
-        // Development mode is more tolerant in hosted browser deployments.
-        environment: SDKEnvironment?.Development ?? 'development',
-        debug: Boolean(import.meta.env?.DEV),
+        environment: import.meta.env.PROD
+          ? (SDKEnvironment?.Production ?? 'production')
+          : (SDKEnvironment?.Development ?? 'development'),
+        debug: import.meta.env.PROD ? false : Boolean(import.meta.env?.DEV),
         acceleration: capabilities?.hasWebGPU ? 'webgpu' : 'cpu',
       });
 
