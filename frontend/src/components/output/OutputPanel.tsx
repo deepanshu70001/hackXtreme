@@ -31,7 +31,7 @@ export const OutputPanel: React.FC = () => {
   ];
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-transparent">
+    <div className="relative flex h-full min-h-[36rem] flex-col overflow-hidden bg-transparent">
       <AnimatePresence mode="wait">
         {isProcessing && !result ? (
           <motion.div
@@ -96,7 +96,7 @@ export const OutputPanel: React.FC = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-2xl transition-all duration-300 ${
+                      className={`relative flex min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2.5 py-2.5 transition-all duration-300 md:min-w-0 md:flex-1 ${
                         active ? 'text-white' : 'text-text-secondary hover:text-white'
                       }`}
                     >

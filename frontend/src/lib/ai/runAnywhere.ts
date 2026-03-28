@@ -44,14 +44,42 @@ const CACHE_INDEX_KEY = `${CACHE_PREFIX}index`;
 const CACHE_RECORD_VERSION = 2;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const CACHE_MAX_ENTRIES = 18;
-const MODEL_ID = 'lfm2-350m-q4_k_m';
-const MODEL_NAME = 'LFM2 350M Q4_K_M';
-const MODEL_REPO = 'LiquidAI/LFM2-350M-GGUF';
-const MODEL_FILES = ['LFM2-350M-Q4_K_M.gguf'];
 const MAX_SOURCE_CHARACTERS = 3800;
 const MAX_GENERATION_TOKENS = 512;
 const MAX_CHAT_CONTEXT_CHARACTERS = 3200;
 const MAX_CHAT_HISTORY_TURNS = 8;
+
+interface ModelCandidate {
+  id: string;
+  name: string;
+  repo: string;
+  files: string[];
+  memoryRequirement: number;
+}
+
+const MODEL_CANDIDATES: ModelCandidate[] = [
+  {
+    id: 'smollm2-135m-instruct-q4_0',
+    name: 'SmolLM2 135M Instruct Q4_0',
+    repo: 'QuantFactory/SmolLM2-135M-Instruct-GGUF',
+    files: ['SmolLM2-135M-Instruct.Q4_0.gguf'],
+    memoryRequirement: 140_000_000,
+  },
+  {
+    id: 'lfm2-350m-q4_0',
+    name: 'LFM2 350M Q4_0',
+    repo: 'LiquidAI/LFM2-350M-GGUF',
+    files: ['LFM2-350M-Q4_0.gguf'],
+    memoryRequirement: 250_000_000,
+  },
+  {
+    id: 'lfm2-350m-q4_k_m',
+    name: 'LFM2 350M Q4_K_M',
+    repo: 'LiquidAI/LFM2-350M-GGUF',
+    files: ['LFM2-350M-Q4_K_M.gguf'],
+    memoryRequirement: 280_000_000,
+  },
+];
 
 interface CacheIndexEntry {
   key: string;
@@ -67,6 +95,7 @@ interface CacheRecord {
 let runtime: InferenceRuntime = 'wasm';
 let modulesPromise: Promise<{ core: Record<string, unknown>; llama: Record<string, unknown> }> | null = null;
 let modelPromise: Promise<void> | null = null;
+let activeModelCandidate = MODEL_CANDIDATES[0];
 
 const reportProgress = (onProgress: ProgressCallback | undefined, status: string, progress: number) => {
   onProgress?.(status, Math.max(0, Math.min(100, progress)));
@@ -729,9 +758,10 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
         throw new Error('RunAnywhere Web SDK exports were not available.');
       }
 
+      let capabilities: { hasWebGPU?: boolean; isCrossOriginIsolated?: boolean } | null = null;
       if (detectCapabilities) {
         reportProgress(onProgress, 'Checking browser AI capabilities', 16);
-        const capabilities = await detectCapabilities();
+        capabilities = await detectCapabilities();
         if (capabilities.isCrossOriginIsolated === false) {
           reportProgress(onProgress, 'Cross-origin isolation unavailable, using limited compatibility mode', 18);
         } else if (capabilities.hasWebGPU) {
@@ -739,45 +769,75 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
         }
       }
 
-      const isDev = Boolean(import.meta.env?.DEV);
-
       reportProgress(onProgress, 'Initializing RunAnywhere core', 20);
       await RunAnywhere.initialize({
-        environment: isDev ? SDKEnvironment?.Development ?? 'development' : SDKEnvironment?.Production ?? 'production',
-        debug: isDev,
+        // Development mode is more tolerant in hosted browser deployments.
+        environment: SDKEnvironment?.Development ?? 'development',
+        debug: Boolean(import.meta.env?.DEV),
+        acceleration: capabilities?.hasWebGPU ? 'webgpu' : 'cpu',
       });
 
       reportProgress(onProgress, 'Registering llama.cpp browser backend', 32);
       await LlamaCPP.register();
 
-      RunAnywhere.registerModels([
-        {
-          id: MODEL_ID,
-          name: MODEL_NAME,
-          repo: MODEL_REPO,
-          files: MODEL_FILES,
+      RunAnywhere.registerModels(
+        MODEL_CANDIDATES.map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+          repo: candidate.repo,
+          files: candidate.files,
           framework: LLMFramework?.LlamaCpp ?? 'llama.cpp',
           modality: ModelCategory?.Language ?? 'language',
-          memoryRequirement: 250_000_000,
-        },
-      ]);
+          memoryRequirement: candidate.memoryRequirement,
+        })),
+      );
 
       const detachProgressListener = EventBus?.shared?.on?.(
         'model.downloadProgress',
         (payload: Record<string, unknown>) => {
           const progressValue = typeof payload.progress === 'number' ? payload.progress : 0;
-          const modelId = typeof payload.modelId === 'string' ? payload.modelId : MODEL_ID;
+          const modelId = typeof payload.modelId === 'string' ? payload.modelId : activeModelCandidate.id;
           const percentage = Math.max(0, Math.min(100, Math.round(progressValue * 100)));
           reportProgress(onProgress, `Caching ${modelId} locally (${percentage}%)`, 32 + Math.round(percentage * 0.42));
         },
       );
 
       try {
-        reportProgress(onProgress, 'Downloading or reusing local model cache', 44);
-        await ModelManager.downloadModel(MODEL_ID);
+        let selectedModel: ModelCandidate | null = null;
+        let lastError: unknown = null;
 
-        reportProgress(onProgress, 'Loading model into browser memory', 86);
-        await ModelManager.loadModel(MODEL_ID);
+        for (let index = 0; index < MODEL_CANDIDATES.length; index += 1) {
+          const candidate = MODEL_CANDIDATES[index];
+          const slot = `${index + 1}/${MODEL_CANDIDATES.length}`;
+          reportProgress(onProgress, `Preparing ${candidate.name} (${slot})`, 42 + index * 8);
+
+          try {
+            reportProgress(onProgress, `Trying cached ${candidate.name} first`, 48 + index * 8);
+            await ModelManager.loadModel(candidate.id);
+            selectedModel = candidate;
+            break;
+          } catch {
+            try {
+              reportProgress(onProgress, `Downloading ${candidate.name} for local use`, 54 + index * 8);
+              await ModelManager.downloadModel(candidate.id);
+              reportProgress(onProgress, `Loading ${candidate.name} into browser memory`, 78 + index * 6);
+              await ModelManager.loadModel(candidate.id);
+              selectedModel = candidate;
+              break;
+            } catch (error) {
+              lastError = error;
+              console.warn(`Model candidate failed: ${candidate.id}`, error);
+            }
+          }
+        }
+
+        if (!selectedModel) {
+          throw lastError instanceof Error
+            ? lastError
+            : new Error('All local model candidates failed to download or load.');
+        }
+
+        activeModelCandidate = selectedModel;
       } finally {
         if (typeof detachProgressListener === 'function') {
           detachProgressListener();
@@ -800,14 +860,14 @@ export const warmupLocalModel = async ({
   onProgress?: ProgressCallback;
 } = {}): Promise<WarmupResult> => {
   await ensureModelReady(onProgress);
-  reportProgress(onProgress, `RunAnywhere ready on ${runtime.toUpperCase()}`, 100);
+  reportProgress(onProgress, `RunAnywhere ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`, 100);
 
   return {
     ready: true,
-    engineLabel: 'RunAnywhere SDK',
+    engineLabel: `RunAnywhere SDK · ${activeModelCandidate.name}`,
     runtimeLabel: runtime.toUpperCase(),
     runtime,
-    status: `RunAnywhere ready on ${runtime.toUpperCase()}`,
+    status: `RunAnywhere ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`,
   };
 };
 

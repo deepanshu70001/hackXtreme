@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 export const ModelStatus: React.FC = () => {
   const { isReady, progress, status, engineLabel, runtimeLabel } = useModelStore();
   const hasFailure = !isReady && runtimeLabel.toLowerCase() === 'unavailable';
+  const isFallback = runtimeLabel.toLowerCase() === 'fallback';
 
   return (
     <div className="border-b border-white/10 bg-slate-950/40 px-4 py-3 backdrop-blur-xl md:px-6">
@@ -14,6 +15,8 @@ export const ModelStatus: React.FC = () => {
             className={`h-2 w-2 rounded-full ${
               isReady
                 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                : isFallback
+                  ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]'
                 : hasFailure
                   ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.5)]'
                   : 'animate-pulse bg-amber-400'
@@ -33,7 +36,7 @@ export const ModelStatus: React.FC = () => {
           </span>
         </div>
 
-        {!isReady && !hasFailure && (
+        {!isReady && !hasFailure && !isFallback && (
           <div className="flex w-full items-center gap-3 md:w-auto">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10 md:w-48">
               <motion.div
@@ -49,6 +52,12 @@ export const ModelStatus: React.FC = () => {
         {hasFailure && (
           <div className="rounded-full border border-rose-400/15 bg-rose-400/10 px-3 py-1.5 text-[11px] font-medium text-rose-100">
             Full local model is unavailable in this browser session. Quick fallback generation is still available.
+          </div>
+        )}
+
+        {isFallback && (
+          <div className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-medium text-sky-100">
+            Fallback mode active: fast local draft generation is enabled.
           </div>
         )}
       </div>

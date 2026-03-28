@@ -10,7 +10,7 @@ import { useModelStore } from '../store/useModelStore';
 import { GenerationResult } from '../types/ai.types';
 
 const MAX_REFINEMENT_MS_READY = 35_000;
-const MAX_REFINEMENT_MS_COLD_START = 120_000;
+const MAX_REFINEMENT_MS_COLD_START = 240_000;
 const QUICK_FALLBACK_ERROR_PATTERN = /download|network|fetch|unavailable|cross-origin|module script/i;
 
 export const useLocalCopilot = () => {
@@ -46,10 +46,11 @@ export const useLocalCopilot = () => {
         console.error(error);
         if (!isMounted) return;
 
+        const message = formatRunAnywhereError(error);
         setEngine('RunAnywhere SDK', 'Unavailable');
         setReady(false);
         setProgress(0);
-        setStatus(formatRunAnywhereError(error));
+        setStatus(`${message} Generation will retry local model initialization on demand.`);
       }
     };
 
@@ -135,6 +136,8 @@ export const useLocalCopilot = () => {
       } else if (message === 'Generation canceled.') {
         setStatus('Generation canceled.');
       } else if (shouldFallbackToQuickDraft) {
+        setEngine('RunAnywhere SDK', 'Unavailable');
+        setReady(false);
         const quickFallback = generateQuickCopilotResponse({
           content: effectiveContent,
           mode,
@@ -145,7 +148,7 @@ export const useLocalCopilot = () => {
         startTransition(() => {
           setResult(quickFallback);
         });
-        setStatus('RunAnywhere unavailable. Generated a quick local draft fallback.');
+        setStatus('RunAnywhere unavailable. Generated a quick local draft while local model retries remain available.');
         setProgress(100);
         setError(null);
       } else {

@@ -41,7 +41,7 @@ export const InputPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-6 custom-scrollbar no-scrollbar md:p-8">
+    <div className="flex h-full min-h-[34rem] flex-col gap-6 overflow-y-auto p-5 custom-scrollbar no-scrollbar md:p-8">
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
