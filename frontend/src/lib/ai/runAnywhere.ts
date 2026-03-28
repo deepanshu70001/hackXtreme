@@ -119,6 +119,18 @@ export const formatRunAnywhereError = (error: unknown) => {
     return 'This browser session is missing the isolation features needed for local AI. Open the app through the local server instead of a file preview.';
   }
 
+  if (/quota|opfs|storage|disk/i.test(message)) {
+    return 'Browser storage is full for local model files. Clear some site data and retry local model initialization.';
+  }
+
+  if (/429|too many requests|rate limit/i.test(message)) {
+    return 'The model host is rate-limiting downloads right now. Wait a minute and retry.';
+  }
+
+  if (/cors|access-control-allow-origin|blocked by client|err_blocked_by_client/i.test(message)) {
+    return 'The browser blocked the model download request. Disable strict blockers/VPN for this site and retry.';
+  }
+
   if (/out of memory|memory/i.test(message)) {
     return 'The browser ran out of memory while loading the local model. Close heavy tabs and try again.';
   }
@@ -723,7 +735,7 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
 
       const { core, llama } = await loadModules();
       const detectCapabilities = core.detectCapabilities as
-        | (() => Promise<{ hasWebGPU?: boolean; isCrossOriginIsolated?: boolean }>)
+        | (() => Promise<{ hasWebGPU?: boolean; isCrossOriginIsolated?: boolean; hasOPFS?: boolean }>)
         | undefined;
       const RunAnywhere = core.RunAnywhere as
         | {
@@ -734,7 +746,8 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
       const ModelManager = core.ModelManager as
         | {
             downloadModel: (modelId: string) => Promise<void>;
-            loadModel: (modelId: string) => Promise<void>;
+            loadModel: (modelId: string) => Promise<boolean | void>;
+            deleteModel?: (modelId: string) => Promise<void>;
           }
         | undefined;
       const SDKEnvironment = core.SDKEnvironment as Record<string, unknown> | undefined;
@@ -758,7 +771,7 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
         throw new Error('RunAnywhere Web SDK exports were not available.');
       }
 
-      let capabilities: { hasWebGPU?: boolean; isCrossOriginIsolated?: boolean } | null = null;
+      let capabilities: { hasWebGPU?: boolean; isCrossOriginIsolated?: boolean; hasOPFS?: boolean } | null = null;
       if (detectCapabilities) {
         reportProgress(onProgress, 'Checking browser AI capabilities', 16);
         capabilities = await detectCapabilities();
@@ -766,6 +779,8 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
           reportProgress(onProgress, 'Cross-origin isolation unavailable, using limited compatibility mode', 18);
         } else if (capabilities.hasWebGPU) {
           reportProgress(onProgress, 'WebGPU available for faster local inference', 18);
+        } else if (capabilities.hasOPFS === false) {
+          reportProgress(onProgress, 'Persistent browser storage unavailable, using session-only cache', 18);
         }
       }
 
@@ -813,7 +828,10 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
 
           try {
             reportProgress(onProgress, `Trying cached ${candidate.name} first`, 48 + index * 8);
-            await ModelManager.loadModel(candidate.id);
+            const loadedFromCache = await ModelManager.loadModel(candidate.id);
+            if (loadedFromCache === false) {
+              throw new Error(`Model cache entry for ${candidate.id} was not loadable.`);
+            }
             selectedModel = candidate;
             break;
           } catch {
@@ -821,12 +839,33 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
               reportProgress(onProgress, `Downloading ${candidate.name} for local use`, 54 + index * 8);
               await ModelManager.downloadModel(candidate.id);
               reportProgress(onProgress, `Loading ${candidate.name} into browser memory`, 78 + index * 6);
-              await ModelManager.loadModel(candidate.id);
+              const loadedAfterDownload = await ModelManager.loadModel(candidate.id);
+              if (loadedAfterDownload === false) {
+                throw new Error(`Downloaded model ${candidate.id} could not be loaded.`);
+              }
               selectedModel = candidate;
               break;
             } catch (error) {
-              lastError = error;
-              console.warn(`Model candidate failed: ${candidate.id}`, error);
+              try {
+                if (typeof ModelManager.deleteModel !== 'function') {
+                  throw error;
+                }
+
+                reportProgress(onProgress, `Repairing cache for ${candidate.name}`, 70 + index * 6);
+                await ModelManager.deleteModel(candidate.id);
+                reportProgress(onProgress, `Re-downloading ${candidate.name}`, 76 + index * 6);
+                await ModelManager.downloadModel(candidate.id);
+                reportProgress(onProgress, `Retrying ${candidate.name} load`, 82 + index * 6);
+                const loadedAfterRepair = await ModelManager.loadModel(candidate.id);
+                if (loadedAfterRepair === false) {
+                  throw new Error(`Recovered model ${candidate.id} could not be loaded.`);
+                }
+                selectedModel = candidate;
+                break;
+              } catch (repairError) {
+                lastError = repairError;
+                console.warn(`Model candidate failed: ${candidate.id}`, repairError);
+              }
             }
           }
         }
@@ -864,7 +903,7 @@ export const warmupLocalModel = async ({
 
   return {
     ready: true,
-    engineLabel: `RunAnywhere SDK · ${activeModelCandidate.name}`,
+    engineLabel: `RunAnywhere SDK - ${activeModelCandidate.name}`,
     runtimeLabel: runtime.toUpperCase(),
     runtime,
     status: `RunAnywhere ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`,
@@ -1060,3 +1099,4 @@ export const generateCopilotResponse = async ({
   reportProgress(onProgress, 'RunAnywhere generation complete', 100);
   return normalized;
 };
+

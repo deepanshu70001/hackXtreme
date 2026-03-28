@@ -41,7 +41,7 @@ export const InputPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full min-h-[34rem] flex-col gap-6 overflow-y-auto p-5 custom-scrollbar no-scrollbar md:p-8">
+    <div className="flex h-full min-h-[28rem] flex-col gap-5 overflow-y-auto p-4 custom-scrollbar no-scrollbar sm:min-h-[32rem] md:gap-6 md:p-8">
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
@@ -53,7 +53,7 @@ export const InputPanel: React.FC = () => {
           Workspace
         </div>
         <div className="space-y-2">
-          <h2 className="flex items-center gap-3 text-3xl font-black tracking-tight text-white">
+          <h2 className="flex items-center gap-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
             <div className="h-10 w-1 rounded-full bg-gradient-to-b from-accent-primary via-accent-tertiary to-transparent" />
             Input Source
           </h2>
@@ -129,16 +129,16 @@ export const InputPanel: React.FC = () => {
                 <span className="block text-[11px] text-text-secondary">Current browser AI status and fallback details.</span>
               </div>
             </div>
-            <div className="grid gap-3 text-sm text-text-secondary md:grid-cols-2">
-              <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+            <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2">
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
                 <span>Engine</span>
-                <span className="max-w-[60%] break-words text-right font-medium text-white">{engineLabel}</span>
+                <span className="max-w-[70%] break-words text-right font-medium text-white">{engineLabel}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
                 <span>Runtime</span>
                 <span className={`font-medium ${isReady ? 'text-accent-tertiary' : 'text-white'}`}>{runtimeLabel}</span>
               </div>
-              <div className={`rounded-2xl px-4 py-3 text-xs leading-relaxed md:col-span-2 ${
+              <div className={`rounded-2xl px-4 py-3 text-xs leading-relaxed sm:col-span-2 ${
                 isReady
                   ? 'border border-accent-tertiary/15 bg-accent-tertiary/10 text-white/80'
                   : 'border border-amber-400/15 bg-amber-400/10 text-amber-100'
@@ -154,7 +154,7 @@ export const InputPanel: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass group relative flex min-h-[360px] flex-1 flex-col gap-6 overflow-hidden rounded-3xl p-6 md:p-8"
+          className="glass group relative flex min-h-[320px] flex-1 flex-col gap-6 overflow-hidden rounded-3xl p-5 sm:min-h-[360px] md:p-8"
         >
           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
             <Sparkles className="w-16 h-16 text-white" />
@@ -209,20 +209,22 @@ export const InputPanel: React.FC = () => {
           )}
 
           <div className="relative z-10 flex flex-col gap-4 border-t border-white/5 pt-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-5">
+            <div className="grid grid-cols-2 gap-x-5 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Characters</span>
                 <span className="text-xs font-mono text-white/90">{deferredCharacterCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/5" />
+              <div className="hidden h-6 w-px bg-white/5 sm:block" />
               <div className="flex flex-col gap-0.5">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Words</span>
                 <span className="text-xs font-mono text-white/90">{deferredWordCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/5" />
+              <div className="hidden h-6 w-px bg-white/5 sm:block" />
               <div className="flex flex-col gap-0.5">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Source</span>
-                <span className="text-xs font-medium text-white/90 truncate max-w-[150px]">{usingAttachedSource ? `${sourceLabel} (attached)` : sourceLabel}</span>
+                <span className="max-w-[180px] truncate text-xs font-medium text-white/90 sm:max-w-[220px]">
+                  {usingAttachedSource ? `${sourceLabel} (attached)` : sourceLabel}
+                </span>
               </div>
             </div>
 

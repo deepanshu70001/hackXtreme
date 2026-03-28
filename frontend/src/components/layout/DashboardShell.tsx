@@ -12,7 +12,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
       <Sidebar />
       <div className="relative z-10 flex min-h-dvh min-w-0 flex-1 flex-col xl:min-h-0">
         <ModelStatus />
-        <main className="flex-1 overflow-visible p-3 sm:p-4 md:p-6 lg:p-8 xl:overflow-hidden">
+        <main className="flex-1 overflow-visible p-2.5 sm:p-3.5 md:p-5 lg:p-7 xl:overflow-hidden">
           {children}
         </main>
       </div>

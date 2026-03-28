@@ -8,8 +8,8 @@ export const ModelStatus: React.FC = () => {
   const isFallback = runtimeLabel.toLowerCase() === 'fallback';
 
   return (
-    <div className="border-b border-white/10 bg-slate-950/40 px-4 py-3 backdrop-blur-xl md:px-6">
-      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+    <div className="border-b border-white/10 bg-slate-950/40 px-3 py-2.5 backdrop-blur-xl sm:px-4 md:px-6">
+      <div className="flex flex-wrap items-start gap-2.5 md:items-center md:gap-4">
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
           <div
             className={`h-2 w-2 rounded-full ${
@@ -28,17 +28,17 @@ export const ModelStatus: React.FC = () => {
         </div>
 
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-medium uppercase tracking-wider text-text-secondary">
+          <span className="block truncate text-[11px] font-medium uppercase tracking-wider text-text-secondary">
             {engineLabel} / {runtimeLabel}
           </span>
-          <span className={`block truncate text-sm ${hasFailure ? 'text-rose-100' : 'text-white/80'}`}>
+          <span className={`block text-xs leading-5 sm:text-sm ${hasFailure ? 'text-rose-100' : 'text-white/80'}`}>
             {status}
           </span>
         </div>
 
         {!isReady && !hasFailure && !isFallback && (
-          <div className="flex w-full items-center gap-3 md:w-auto">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10 md:w-48">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10 sm:w-40 md:w-48">
               <motion.div
                 className="h-full rounded-full bg-gradient-to-r from-accent-primary to-accent-tertiary"
                 initial={{ width: 0 }}
@@ -50,13 +50,13 @@ export const ModelStatus: React.FC = () => {
         )}
 
         {hasFailure && (
-          <div className="rounded-full border border-rose-400/15 bg-rose-400/10 px-3 py-1.5 text-[11px] font-medium text-rose-100">
+          <div className="w-full rounded-2xl border border-rose-400/15 bg-rose-400/10 px-3 py-2 text-[11px] leading-5 text-rose-100 sm:w-auto sm:rounded-full sm:py-1.5">
             Full local model is unavailable in this browser session. Quick fallback generation is still available.
           </div>
         )}
 
         {isFallback && (
-          <div className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-[11px] font-medium text-sky-100">
+          <div className="w-full rounded-2xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-[11px] leading-5 text-sky-100 sm:w-auto sm:rounded-full sm:py-1.5">
             Fallback mode active: fast local draft generation is enabled.
           </div>
         )}

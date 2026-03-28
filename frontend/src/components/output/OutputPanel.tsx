@@ -31,7 +31,7 @@ export const OutputPanel: React.FC = () => {
   ];
 
   return (
-    <div className="relative flex h-full min-h-[36rem] flex-col overflow-hidden bg-transparent">
+    <div className="relative flex h-full min-h-[30rem] flex-col overflow-hidden bg-transparent sm:min-h-[34rem]">
       <AnimatePresence mode="wait">
         {isProcessing && !result ? (
           <motion.div
@@ -39,14 +39,14 @@ export const OutputPanel: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex h-full flex-col gap-6 p-6 md:p-8"
+            className="flex h-full flex-col gap-5 p-4 sm:gap-6 sm:p-6 md:p-8"
           >
             <div className="flex flex-col gap-1">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Local Analysis</div>
-              <h2 className="text-3xl font-black tracking-tight text-white">Generating Insights</h2>
+              <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Generating Insights</h2>
               <p className="text-sm text-text-secondary/70">The browser model is analyzing your content and streaming a structured result.</p>
             </div>
-            <div className="glass flex-1 overflow-hidden rounded-3xl p-6 md:p-8">
+            <div className="glass flex-1 overflow-hidden rounded-3xl p-5 sm:p-6 md:p-8">
               <div className="max-w-3xl mx-auto">
                 <div className="flex items-center gap-3 mb-8 text-white/70">
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -61,13 +61,13 @@ export const OutputPanel: React.FC = () => {
             key="result"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex h-full flex-col gap-6 p-6 md:p-8"
+            className="flex h-full flex-col gap-5 p-4 sm:gap-6 sm:p-6 md:p-8"
           >
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-col gap-1">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Results</div>
-                  <h2 className="text-3xl font-black tracking-tight text-white">{result ? 'Insights' : 'Ready to Assist'}</h2>
+                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{result ? 'Insights' : 'Ready to Assist'}</h2>
                   {result ? (
                     <p className="text-sm text-text-secondary/70">
                       {result.meta.engine} / {result.meta.runtime.toUpperCase()} / {result.meta.cached ? 'Cached on-device' : 'Fresh local run'}
@@ -88,7 +88,7 @@ export const OutputPanel: React.FC = () => {
                 </div>
               )}
 
-              <div className="glass flex items-center gap-1 rounded-3xl p-1.5 overflow-x-auto no-scrollbar w-full">
+              <div className="glass flex w-full items-center gap-1 overflow-x-auto rounded-3xl p-1.5 custom-scrollbar">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const active = activeTab === tab.id;
@@ -99,6 +99,7 @@ export const OutputPanel: React.FC = () => {
                       className={`relative flex min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2.5 py-2.5 transition-all duration-300 md:min-w-0 md:flex-1 ${
                         active ? 'text-white' : 'text-text-secondary hover:text-white'
                       }`}
+                      title={tab.label}
                     >
                       {active && (
                         <motion.div
@@ -108,14 +109,14 @@ export const OutputPanel: React.FC = () => {
                         />
                       )}
                       <Icon className={`w-3.5 h-3.5 relative z-10 shrink-0 ${active ? tab.color : ''}`} />
-                      <span className="text-[11px] font-bold relative z-10 truncate">{tab.label}</span>
+                      <span className="relative z-10 truncate text-[11px] font-bold">{tab.label}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="glass relative flex-1 overflow-y-auto rounded-[36px] p-6 custom-scrollbar no-scrollbar md:p-8">
+            <div className="glass relative flex-1 overflow-y-auto rounded-[28px] p-4 custom-scrollbar no-scrollbar sm:p-6 md:rounded-[36px] md:p-8">
               <div className="max-w-3xl mx-auto h-full">
                 <AnimatePresence mode="wait">
                   <motion.div

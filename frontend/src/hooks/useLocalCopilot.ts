@@ -136,7 +136,7 @@ export const useLocalCopilot = () => {
       } else if (message === 'Generation canceled.') {
         setStatus('Generation canceled.');
       } else if (shouldFallbackToQuickDraft) {
-        setEngine('RunAnywhere SDK', 'Unavailable');
+        setEngine('Quick Local Draft', 'Fallback');
         setReady(false);
         const quickFallback = generateQuickCopilotResponse({
           content: effectiveContent,
