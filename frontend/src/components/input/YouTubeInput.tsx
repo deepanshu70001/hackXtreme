@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Youtube, Link2, Loader2 } from 'lucide-react';
 import { fetchYoutubeTranscript } from '../../lib/extractors/youtubeExtractor';
+import { YouTubeTimelineItem } from '../../types/ai.types';
 
 interface YouTubeInputProps {
-  onExtract: (payload: { text: string; label: string }) => void;
+  onExtract: (payload: { text: string; label: string; timeline: YouTubeTimelineItem[] }) => void;
   onError?: (message: string) => void;
 }
 
@@ -18,7 +19,7 @@ export const YouTubeInput: React.FC<YouTubeInputProps> = ({ onExtract, onError }
     setIsFetching(true);
     try {
       const payload = await fetchYoutubeTranscript(url, transcript);
-      onExtract({ text: payload.text, label: payload.label });
+      onExtract({ text: payload.text, label: payload.label, timeline: payload.timeline });
       setUrl('');
       setTranscript('');
     } catch (error: any) {

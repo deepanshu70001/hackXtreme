@@ -17,6 +17,7 @@ export const InputPanel: React.FC = () => {
     sourceType,
     sourceLabel,
     setSource,
+    setYouTubeTimeline,
     isProcessing,
     error,
     setError,
@@ -88,6 +89,7 @@ export const InputPanel: React.FC = () => {
               onExtract={({ text, label }) => {
                 setInput('');
                 setSourceContent(text);
+                setYouTubeTimeline([]);
                 setSource('pdf', label);
                 setError(null);
               }}
@@ -106,9 +108,10 @@ export const InputPanel: React.FC = () => {
               </div>
             </div>
             <YouTubeInput
-              onExtract={({ text, label }) => {
+              onExtract={({ text, label, timeline }) => {
                 setInput('');
                 setSourceContent(text);
+                setYouTubeTimeline(timeline);
                 setSource('youtube', label);
                 setError(null);
               }}

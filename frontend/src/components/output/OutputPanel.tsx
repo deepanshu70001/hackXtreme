@@ -5,13 +5,15 @@ import { FlashcardsTab } from './FlashcardsTab';
 import { SlidesTab } from './SlidesTab';
 import { EmailTab } from './EmailTab';
 import { ChatTab } from './ChatTab';
-import { FileText, ListTodo, Brain, Presentation, Mail, Loader2, Sparkles, MessageSquare } from 'lucide-react';
+import { NeuralLinkTab } from './NeuralLinkTab';
+import { TimelineTab } from './TimelineTab';
+import { FileText, ListTodo, Brain, Presentation, Mail, Loader2, Sparkles, MessageSquare, Share2, Clock3 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ExportButton } from '../shared/ExportButton';
 import { SkeletonLoader } from '../shared/SkeletonLoader';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabId = 'summary' | 'actions' | 'flashcards' | 'slides' | 'email' | 'chat';
+type TabId = 'summary' | 'timeline' | 'actions' | 'flashcards' | 'neurallink' | 'slides' | 'email' | 'chat';
 
 export const OutputPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
@@ -19,8 +21,10 @@ export const OutputPanel: React.FC = () => {
 
   const tabs: { id: TabId; label: string; icon: any; color: string }[] = [
     { id: 'summary', label: 'Summary', icon: FileText, color: 'text-accent-primary' },
+    { id: 'timeline', label: 'Timeline', icon: Clock3, color: 'text-accent-secondary' },
     { id: 'actions', label: 'Actions', icon: ListTodo, color: 'text-accent-secondary' },
     { id: 'flashcards', label: 'Flashcards', icon: Brain, color: 'text-accent-tertiary' },
+    { id: 'neurallink', label: 'Neural Link', icon: Share2, color: 'text-accent-primary' },
     { id: 'slides', label: 'PPT Outline', icon: Presentation, color: 'text-accent-primary' },
     { id: 'email', label: 'Email', icon: Mail, color: 'text-violet-400' },
     { id: 'chat', label: 'Chat', icon: MessageSquare, color: 'text-accent-tertiary' },
@@ -128,6 +132,7 @@ export const OutputPanel: React.FC = () => {
                       ) : (
                         <EmptyResultState label="Summary" />
                       ))}
+                    {activeTab === 'timeline' && <TimelineTab />}
                     {activeTab === 'actions' &&
                       (result ? (
                         <ActionsTab />
@@ -139,6 +144,12 @@ export const OutputPanel: React.FC = () => {
                         <FlashcardsTab />
                       ) : (
                         <EmptyResultState label="Flashcards" />
+                      ))}
+                    {activeTab === 'neurallink' &&
+                      (result ? (
+                        <NeuralLinkTab />
+                      ) : (
+                        <EmptyResultState label="Neural Link" />
                       ))}
                     {activeTab === 'slides' &&
                       (result ? (

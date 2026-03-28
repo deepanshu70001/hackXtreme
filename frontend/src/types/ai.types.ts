@@ -4,6 +4,14 @@ export type ActionPriority = 'high' | 'medium' | 'low';
 export type DeadlineConfidence = 'explicit' | 'inferred';
 export type InferenceRuntime = 'webgpu' | 'wasm';
 
+export interface YouTubeTimelineItem {
+  startSeconds: number;
+  timeLabel: string;
+  title: string;
+  summary: string;
+  link?: string;
+}
+
 export interface Flashcard {
   question: string;
   answer: string;
@@ -65,6 +73,7 @@ export interface AppState {
   sourceContent: string;
   sourceType: SourceType;
   sourceLabel: string;
+  youtubeTimeline: YouTubeTimelineItem[];
   error: string | null;
   isProcessing: boolean;
   result: GenerationResult | null;
@@ -73,6 +82,7 @@ export interface AppState {
   setInput: (input: string) => void;
   setSourceContent: (content: string) => void;
   setSource: (sourceType: SourceType, sourceLabel?: string) => void;
+  setYouTubeTimeline: (timeline: YouTubeTimelineItem[]) => void;
   setError: (error: string | null) => void;
   setProcessing: (isProcessing: boolean) => void;
   setResult: (result: GenerationResult | null) => void;
