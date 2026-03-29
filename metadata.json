@@ -1,5 +1,5 @@
 {
-  "name": "Local AI Content Copilot",
-  "description": "A privacy-first, on-device AI tool for transforming PDFs, notes, and videos into structured insights using local browser-based inference.",
+  "name": "Vizora Desk",
+  "description": "A privacy-first workspace that turns PDFs, notes, and transcripts into structured insights directly in the browser.",
   "requestFramePermissions": []
 }

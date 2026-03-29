@@ -7,7 +7,7 @@ import { Columns2, PanelLeft, PanelRightClose } from 'lucide-react';
 const DEFAULT_LEFT_WIDTH = 42;
 const MIN_LEFT_WIDTH = 28;
 const MAX_LEFT_WIDTH = 72;
-const STORAGE_KEY = 'copilot.split.leftWidth';
+const STORAGE_KEY = 'vizoraDesk.split.leftWidth';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 

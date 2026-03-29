@@ -1,114 +1,84 @@
-<div align="center">
-  <div style="background: white; width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-    <h1 style="color: black; margin: 0; font-size: 32px; font-weight: 900; line-height: 1;">C</h1>
-  </div>
-  <h1>Local AI Productivity Copilot</h1>
-  <p><strong>A 100% On-Device, Privacy-First Knowledge Assistant built for hackXtreme</strong></p>
-  
-  <p>
-    <img src="https://img.shields.io/badge/RunAnywhere-SDK-blue?style=for-the-badge" alt="RunAnywhere SDK" />
-    <img src="https://img.shields.io/badge/100%25-Local_Inference-success?style=for-the-badge" alt="Local Inference" />
-    <img src="https://img.shields.io/badge/Privacy-First-orange?style=for-the-badge" alt="Privacy First" />
-  </p>
-</div>
+# Vizora Desk
 
----
+Vizora Desk is a privacy-first productivity workspace that converts PDFs, notes, and transcripts into structured outputs directly in the browser.
 
-## 🚀 The Vision
+Brand inspiration: built by **Team Visualizer**, with a name inspired by your team identity.
 
-Modern AI tools are powerful, but they require you to send your private documents, meeting notes, and internal knowledge to the cloud. **Local AI Content Copilot** is a browser-first productivity tool that brings the power of LLMs directly to your machine.
+## App Name
+- Product: `Vizora Desk`
+- Project/Package: `vizora-desk`
 
-It turns raw text, PDFs, and YouTube videos into structured, actionable insights using **only your device's hardware**. No cloud processing. No data collection. 100% private.
+## What It Does
+- Ingests content from:
+  - Manual text input
+  - PDF extraction
+  - YouTube transcript paste
+- Generates:
+  - Summary
+  - Timeline
+  - Action items
+  - Flashcards
+  - Slide outline
+  - Follow-up email
+  - Context chat
+- Supports:
+  - Resizable split layout (input vs insights)
+  - Exporting outputs
+  - Local cached results
 
-## 🏆 Hackathon Compliance & Architecture
+## Tech Stack
+- React + TypeScript + Vite
+- Tailwind CSS v4
+- Zustand
+- Motion
+- RunAnywhere Web SDK + llama.cpp WebAssembly
+- Tesseract.js (bundled local OCR assets)
 
-This project strictly adheres to the hackXtreme constraints:
-
-- **Browser-Native Inference:** All AI runs directly inside the browser using the **RunAnywhere SDK**. 
-- **Zero Cloud APIs:** No OpenAI, no Anthropic, no external endpoints. Even our OCR engine (Tesseract.js) runs entirely locally with bundled WebAssembly and language data—we removed all CDN fallbacks.
-- **Unified AI Pipeline:** A single, structured JSON prompt goes to the local LLM to generate all five required deliverables simultaneously, preventing hallucination and disjointed outputs.
-- **Privacy Guaranteed:** Since inference handles locally over WebGL/WebGPU, user data literally *never leaves the device*.
-
----
-
-## ✨ Features
-
-### 📥 1. Omnichannel Input Layer
-- **Local PDF Parsing:** Upload a PDF and the app extracts text completely locally via Tesseract WebAssembly.
-- **YouTube Ingestion:** Paste a YouTube URL. A custom local proxy securely fetches the XML caption track without triggering cross-origin locks.
-- **Text Editor:** Drop in raw meeting notes or text.
-
-### 🧠 2. Deep Insights Generation (The 5 Pillars)
-From a single local processing run, the Copilot generates:
-1. **Executive Summary:** A concise distillation of the source material.
-2. **Action Items & Deadlines:** Auto-extracted tasks and schedule commitments.
-3. **Flashcards:** Active recall questions and answers for studying.
-4. **PPT Outline:** A structured slide-by-slide presentation breakdown.
-5. **Follow-Up Email:** A professionally drafted email summarizing the content and next steps.
-
-### 💬 3. Interactive Context Chat
-After the initial generation, context is preserved in the browser's memory, allowing you to ask the Local Copilot direct follow-up questions about the parsed document.
-
-### 🎨 4. Premium Aesthetic
-Built with a custom, sleek monochromatic dark theme inspired by pro-level software (think Vercel or Linear). We stripped away generic "neon AI" templates to deliver a glassy, refined user experience with polished micro-interactions.
-
----
-
-## 🛠️ Tech Stack
-
-**Frontend & UI**
-- React 18 / TypeScript
-- Tailwind CSS v4 (Custom Monochromatic Theme)
-- Framer Motion (Fluid layout animations)
-- Lucide React (Icons)
-- Zustand (State Management)
-
-**AI & Processing**
-- **RunAnywhere SDK** - Core local LLM orchestration
-- **Tesseract.js** (Locally bundled WASM/Workers) - On-device OCR for PDFs
-
-**Local Tooling**
-- Vite + Express local proxy for secure YouTube transcript fetching
-
----
-
-## 💻 Local Development Setup
-
-Because everything runs locally, getting started is extremely simple.
-
-### 1. Install Dependencies
+## Local Development
+1. Install dependencies
 ```bash
 npm install
 ```
 
-### 2. Start the Local Server
+2. Start development server
 ```bash
 npm run dev
 ```
 
-### 3. Open the App
-Navigate to `http://localhost:3001` (or whichever port Vite allocates).
+3. Open in browser
+- Default Vite URL is usually `http://localhost:5173`
 
-*Note: On your first generation request, the application will download the RunAnywhere LLM model directly into your browser's persistent cache (IndexedDB). Initial boot may take a moment depending on network speed, but subsequent runs load instantly.*
-
----
-
-## 📁 Repository Structure
-
-```text
-├── backend/
-│   └── server.ts          # Express proxy (solely for bypassing YouTube CORS, NO AI here)
-├── frontend/
-│   ├── public/tesseract/  # 100% locally bundled OCR WebAssembly & training data
-│   └── src/
-│       ├── components/    # Modular UI (InputPanel, Output tabs, Sidebar)
-│       ├── hooks/         # useLocalCopilot orchestration hook
-│       ├── lib/ai/        # RunAnywhere SDK wrappers and JSON Schema prompts
-│       ├── lib/extractors/ # PDF & YouTube text parsing logic
-│       └── store/         # Zustand global state (Model status, Context memory)
+## Production Build
+```bash
+npm run build
 ```
 
-<div align="center">
-  <br />
-  <i>Built for hackXtreme. Data stays with you.</i>
-</div>
+Build output is generated in:
+- `frontend/dist`
+
+## Deployment Notes (Important)
+This project includes a Vite build plugin that copies required RunAnywhere WASM files into `frontend/dist/assets`:
+- `racommons-llamacpp.wasm`
+- `racommons-llamacpp-webgpu.wasm`
+
+This prevents SDK startup failures caused by missing WASM assets in production.
+
+## Project Structure
+```text
+frontend/
+  public/
+    tesseract/                 # Local OCR assets
+    favicon.svg
+  src/
+    components/                # UI
+    hooks/                     # Orchestration hooks
+    lib/ai/                    # RunAnywhere integration and prompts
+    lib/extractors/            # PDF/YouTube extraction
+    store/                     # Zustand state
+```
+
+## Scripts
+- `npm run dev` - Start Vite dev server
+- `npm run lint` - Type check
+- `npm run build` - Production build
+- `npm run preview` - Preview production build

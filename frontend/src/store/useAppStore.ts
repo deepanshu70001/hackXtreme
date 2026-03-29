@@ -88,7 +88,7 @@ export const useAppStore = create<AppState>()(
         }),
     }),
     {
-      name: 'local-ai-content-copilot-store',
+      name: 'vizora-desk-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         mode: state.mode,

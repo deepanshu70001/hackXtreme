@@ -39,7 +39,7 @@ interface ChatOptions {
   signal?: AbortSignal;
 }
 
-const CACHE_PREFIX = 'local-ai-content-copilot::';
+const CACHE_PREFIX = 'vizora-desk::';
 const CACHE_INDEX_KEY = `${CACHE_PREFIX}index`;
 const CACHE_RECORD_VERSION = 2;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;

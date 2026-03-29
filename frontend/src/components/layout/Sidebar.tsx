@@ -24,7 +24,7 @@ export const Sidebar: React.FC = () => {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black shadow-lg">
               <span className="font-black text-xl tracking-tighter">C</span>
             </div>
-            <h1 className="text-base font-bold tracking-tight text-white leading-none">Copilot</h1>
+            <h1 className="text-base font-bold tracking-tight text-white leading-none">Vizora Desk</h1>
           </div>
           <span className="text-[10px] font-medium text-text-secondary uppercase tracking-widest pl-12 mt-1">Workspace</span>
         </motion.div>
