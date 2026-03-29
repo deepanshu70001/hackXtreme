@@ -7,6 +7,7 @@ import { useLocalCopilot } from '../../hooks/useLocalCopilot';
 import { PDFUpload } from './PDFUpload';
 import { YouTubeInput } from './YouTubeInput';
 import { ModeSelector } from './ModeSelector';
+import { composeSourceContent, getComposedSourceLabel, hasManualAndAttachedSource } from '../../lib/utils/sourceComposer';
 
 export const InputPanel: React.FC = () => {
   const {
@@ -26,12 +27,19 @@ export const InputPanel: React.FC = () => {
   } = useAppStore();
   const { isReady, status, engineLabel, runtimeLabel } = useModelStore();
   const { processInput, cancelProcessing } = useLocalCopilot();
-  const effectiveInput = input.trim().length > 0 ? input : sourceContent;
+  const effectiveInput = composeSourceContent({
+    input,
+    sourceContent,
+    sourceType,
+    sourceLabel,
+  });
   const deferredInput = useDeferredValue(effectiveInput);
   const deferredWordCount = deferredInput.trim() ? deferredInput.trim().split(/\s+/).length : 0;
   const deferredCharacterCount = deferredInput.length;
   const hasAnySource = input.trim().length > 0 || sourceContent.trim().length > 0;
   const usingAttachedSource = input.trim().length === 0 && sourceContent.trim().length > 0;
+  const usingCombinedSources = hasManualAndAttachedSource(input, sourceContent);
+  const composedSourceLabel = getComposedSourceLabel({ input, sourceContent, sourceLabel });
 
   const handleProcess = async () => {
     try {
@@ -89,7 +97,6 @@ export const InputPanel: React.FC = () => {
             </div>
             <PDFUpload
               onExtract={({ text, label }) => {
-                setInput('');
                 setSourceContent(text);
                 setYouTubeTimeline([]);
                 setSource('pdf', label);
@@ -111,7 +118,6 @@ export const InputPanel: React.FC = () => {
             </div>
             <YouTubeInput
               onExtract={({ text, label, timeline }) => {
-                setInput('');
                 setSourceContent(text);
                 setYouTubeTimeline(timeline);
                 setSource('youtube', label);
@@ -185,7 +191,7 @@ export const InputPanel: React.FC = () => {
               onChange={(e) => {
                 setInput(e.target.value);
                 setError(null);
-                if (e.target.value.trim().length > 0) {
+                if (e.target.value.trim().length > 0 && sourceContent.trim().length === 0) {
                   setSource('text', 'Manual paste');
                 }
               }}
@@ -197,6 +203,11 @@ export const InputPanel: React.FC = () => {
           {usingAttachedSource && (
             <div className="relative z-10 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs leading-6 text-white/80">
               Editor is empty. Generation will use attached source: <span className="font-semibold text-white">{sourceLabel}</span>.
+            </div>
+          )}
+          {usingCombinedSources && (
+            <div className="relative z-10 rounded-xl border border-accent-secondary/25 bg-accent-secondary/10 px-4 py-3 text-xs leading-6 text-white/85">
+              Generation will combine your editor notes with attached source: <span className="font-semibold text-white">{sourceLabel}</span>.
             </div>
           )}
 
@@ -221,7 +232,7 @@ export const InputPanel: React.FC = () => {
               <div className="flex flex-col gap-0.5">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-text-secondary">Source</span>
                 <span className="max-w-[180px] truncate text-xs font-medium text-white/90 sm:max-w-[220px]">
-                  {usingAttachedSource ? `${sourceLabel} (attached)` : sourceLabel}
+                  {usingAttachedSource ? `${sourceLabel} (attached)` : composedSourceLabel}
                 </span>
               </div>
             </div>

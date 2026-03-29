@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Loader2, Send, Square, User } from 'lucide-react';
 import { answerCopilotChat, formatRunAnywhereError } from '../../lib/ai/runAnywhere';
+import { composeSourceContent, getComposedSourceLabel } from '../../lib/utils/sourceComposer';
 import { useAppStore } from '../../store/useAppStore';
 
 type ChatMessage = {
@@ -39,7 +40,7 @@ const getScrollBehavior = (): ScrollBehavior => {
 };
 
 export const ChatTab: React.FC = () => {
-  const { input, sourceContent, result, sourceLabel } = useAppStore();
+  const { input, sourceContent, result, sourceType, sourceLabel } = useAppStore();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: createMessageId(),
@@ -57,7 +58,17 @@ export const ChatTab: React.FC = () => {
 
   const contextText = useMemo(() => {
     const chunks: string[] = [];
-    const activeSource = input.trim().length > 0 ? input.trim() : sourceContent.trim();
+    const activeSource = composeSourceContent({
+      input,
+      sourceContent,
+      sourceType,
+      sourceLabel,
+    });
+    const activeSourceLabel = getComposedSourceLabel({
+      input,
+      sourceContent,
+      sourceLabel,
+    });
     const sourceExcerpt =
       activeSource.length > MAX_SOURCE_CONTEXT_CHARS
         ? `${activeSource.slice(0, MAX_SOURCE_CONTEXT_CHARS).trim()}...`
@@ -82,11 +93,11 @@ export const ChatTab: React.FC = () => {
         );
       }
     } else if (sourceExcerpt) {
-      chunks.push(`Source (${sourceLabel} excerpt):\n${sourceExcerpt}`);
+      chunks.push(`Source (${activeSourceLabel} excerpt):\n${sourceExcerpt}`);
     }
 
     return chunks.join('\n\n').trim();
-  }, [input, sourceContent, result, sourceLabel]);
+  }, [input, sourceContent, result, sourceType, sourceLabel]);
 
   const hasContext = contextText.length > 0;
 

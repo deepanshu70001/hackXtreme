@@ -7,6 +7,7 @@ import {
   shouldUseQuickDraftBeforeWarmup,
   warmupLocalModel,
 } from '../lib/ai/runAnywhere';
+import { composeSourceContent, getComposedSourceLabel } from '../lib/utils/sourceComposer';
 import { useAppStore } from '../store/useAppStore';
 import { useModelStore } from '../store/useModelStore';
 import { GenerationResult } from '../types/ai.types';
@@ -92,7 +93,18 @@ export const useLocalCopilot = () => {
   );
 
   const processInput = async () => {
-    const effectiveContent = input.trim().length > 0 ? input : sourceContent;
+    const effectiveContent = composeSourceContent({
+      input,
+      sourceContent,
+      sourceType,
+      sourceLabel,
+    });
+    const effectiveSourceLabel = getComposedSourceLabel({
+      input,
+      sourceContent,
+      sourceLabel,
+    });
+
     if (!effectiveContent.trim()) {
       setError('Add content in the editor or provide a PDF/YouTube source before generating.');
       setStatus('No source content found. Upload a PDF, add a YouTube source, or paste text.');
@@ -141,7 +153,7 @@ export const useLocalCopilot = () => {
         content: effectiveContent,
         mode,
         sourceType,
-        sourceLabel,
+        sourceLabel: effectiveSourceLabel,
         focusRequest: generationRequest.trim() || undefined,
         onProgress: (status, progress) => {
           setStatus(status);
@@ -170,7 +182,7 @@ export const useLocalCopilot = () => {
           content: effectiveContent,
           mode,
           sourceType,
-          sourceLabel,
+          sourceLabel: effectiveSourceLabel,
           focusRequest: generationRequest.trim() || undefined,
         });
         storedResult = timeoutFallback;
@@ -189,7 +201,7 @@ export const useLocalCopilot = () => {
           content: effectiveContent,
           mode,
           sourceType,
-          sourceLabel,
+          sourceLabel: effectiveSourceLabel,
           focusRequest: generationRequest.trim() || undefined,
         });
         storedResult = quickFallback;
