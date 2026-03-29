@@ -1,5 +1,5 @@
 import { GenerationResult, InferenceRuntime, Mode, SourceType } from '../../types/ai.types';
-import { buildRunAnywherePrompt } from './prompts';
+import { OUTPUT_JSON_SHAPE, buildRunAnywherePrompt } from './prompts';
 
 type ProgressCallback = (status: string, progress: number) => void;
 
@@ -457,6 +457,39 @@ const parseRunAnywhereJson = (value: string) => {
   return tryParseJsonObject(normalized);
 };
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message.trim().length > 0 ? error.message.trim() : String(error ?? '');
+
+const STRUCTURED_OUTPUT_ERROR_PATTERN =
+  /non-json|valid json|required `summary`|did not include the required `summary`|engine returned non-json output/i;
+
+const isStructuredOutputError = (error: unknown) => STRUCTURED_OUTPUT_ERROR_PATTERN.test(getErrorMessage(error));
+
+const buildStrictJsonRecoveryPrompt = ({
+  content,
+  mode,
+  sourceType,
+}: {
+  content: string;
+  mode: Mode;
+  sourceType: SourceType;
+}) => `Return only one valid JSON object and nothing else.
+Do not include markdown, code fences, explanations, or extra text.
+
+Mode: ${mode}
+Source type: ${sourceType}
+
+Rules:
+- Use concise content.
+- If a section is unknown, return an empty array or short placeholder string.
+- Keep arrays short and high-signal.
+
+Required JSON shape:
+${OUTPUT_JSON_SHAPE}
+
+Source content:
+${content}`;
+
 const normalizeSourceText = (value: string) =>
   value
     .replace(/\r/g, '')
@@ -675,6 +708,29 @@ const deriveSlides = (summary: string, keyPoints: string[]) => {
   }));
 
   return [...overview, ...detail].slice(0, 4);
+};
+
+const buildQuickFallbackResult = ({
+  content,
+  mode,
+  sourceType,
+  sourceLabel = 'Manual paste',
+  engineLabel,
+}: QuickGenerateOptions & { engineLabel: string }): GenerationResult => {
+  const quick = generateQuickCopilotResponse({
+    content,
+    mode,
+    sourceType,
+    sourceLabel,
+  });
+
+  return {
+    ...quick,
+    meta: {
+      ...quick.meta,
+      engine: engineLabel,
+    },
+  };
 };
 
 export const generateQuickCopilotResponse = ({
@@ -1137,11 +1193,15 @@ export async function runLocalAI(
   }
 
   const preview = outputText.replace(/\s+/g, ' ').trim().slice(0, 220);
-  throw new Error(
+  const nonJsonError = new Error(
     `Engine returned non-JSON output. Try again with shorter input. Preview: ${preview}${
       outputText.length > preview.length ? '...' : ''
     }`,
-  );
+  ) as Error & { code?: string; rawOutput?: string };
+
+  nonJsonError.code = 'NON_JSON_OUTPUT';
+  nonJsonError.rawOutput = outputText;
+  throw nonJsonError;
 }
 
 export const answerCopilotChat = async ({
@@ -1254,13 +1314,73 @@ export const generateCopilotResponse = async ({
   });
   reportProgress(onProgress, 'Generating structured output', 62);
 
-  const raw = await runLocalAI(prompt, {
-    signal,
-    maxTokens: plan.maxTokens,
-    temperature: plan.speedProfile === 'fast' ? 0.15 : 0.2,
-    onProgress,
-  });
-  const normalized = normalizeResult(raw, { sourceType, sourceLabel });
+  let raw: Record<string, unknown>;
+  try {
+    raw = await runLocalAI(prompt, {
+      signal,
+      maxTokens: plan.maxTokens,
+      temperature: plan.speedProfile === 'fast' ? 0.15 : 0.2,
+      onProgress,
+    });
+  } catch (error) {
+    if (!isStructuredOutputError(error)) {
+      throw error;
+    }
+
+    reportProgress(onProgress, 'Retrying with strict JSON mode', 74);
+    const recoveryPrompt = buildStrictJsonRecoveryPrompt({
+      content: preparedContent,
+      mode,
+      sourceType,
+    });
+
+    try {
+      raw = await runLocalAI(recoveryPrompt, {
+        signal,
+        maxTokens: plan.maxTokens,
+        temperature: 0.05,
+        onProgress,
+      });
+    } catch (recoveryError) {
+      if (!isStructuredOutputError(recoveryError)) {
+        throw recoveryError;
+      }
+
+      reportProgress(onProgress, 'Structured output unavailable, generating quick fallback', 88);
+      const fallback = buildQuickFallbackResult({
+        content: trimmed,
+        mode,
+        sourceType,
+        sourceLabel,
+        engineLabel: 'Quick Local Draft (JSON Fallback)',
+      });
+      writeCache(cacheKey, fallback);
+      reportProgress(onProgress, 'Generation complete', 100);
+      return fallback;
+    }
+  }
+
+  let normalized: GenerationResult;
+  try {
+    normalized = normalizeResult(raw, { sourceType, sourceLabel });
+  } catch (error) {
+    if (!isStructuredOutputError(error)) {
+      throw error;
+    }
+
+    reportProgress(onProgress, 'Response fields were incomplete, generating quick fallback', 88);
+    const fallback = buildQuickFallbackResult({
+      content: trimmed,
+      mode,
+      sourceType,
+      sourceLabel,
+      engineLabel: 'Quick Local Draft (Schema Fallback)',
+    });
+    writeCache(cacheKey, fallback);
+    reportProgress(onProgress, 'Generation complete', 100);
+    return fallback;
+  }
+
   const profiledResult: GenerationResult = {
     ...normalized,
     meta: {
