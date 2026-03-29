@@ -19,6 +19,8 @@ const GENERAL_SUGGESTIONS = [
   'What are the top 3 actions I should do today?',
   'How can I plan my day better?',
 ];
+const MAX_SOURCE_CONTEXT_CHARS = 1200;
+const MAX_SUMMARY_CONTEXT_CHARS = 500;
 
 const getScrollBehavior = (): ScrollBehavior => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -56,22 +58,31 @@ export const ChatTab: React.FC = () => {
   const contextText = useMemo(() => {
     const chunks: string[] = [];
     const activeSource = input.trim().length > 0 ? input.trim() : sourceContent.trim();
-    if (activeSource) {
-      chunks.push(`Source (${sourceLabel}):\n${activeSource}`);
-    }
+    const sourceExcerpt =
+      activeSource.length > MAX_SOURCE_CONTEXT_CHARS
+        ? `${activeSource.slice(0, MAX_SOURCE_CONTEXT_CHARS).trim()}...`
+        : activeSource;
 
     if (result) {
-      chunks.push(`Summary:\n${result.summary}`);
+      const summaryExcerpt =
+        result.summary.length > MAX_SUMMARY_CONTEXT_CHARS
+          ? `${result.summary.slice(0, MAX_SUMMARY_CONTEXT_CHARS).trim()}...`
+          : result.summary;
+
+      chunks.push(`Summary:\n${summaryExcerpt}`);
       if (result.keyPoints.length) {
-        chunks.push(`Key points:\n- ${result.keyPoints.join('\n- ')}`);
+        chunks.push(`Key points:\n- ${result.keyPoints.slice(0, 4).join('\n- ')}`);
       }
       if (result.actionItems.length) {
         chunks.push(
           `Action items:\n- ${result.actionItems
+            .slice(0, 4)
             .map((item) => `${item.task}${item.deadline ? ` (deadline: ${item.deadline})` : ''}`)
             .join('\n- ')}`,
         );
       }
+    } else if (sourceExcerpt) {
+      chunks.push(`Source (${sourceLabel} excerpt):\n${sourceExcerpt}`);
     }
 
     return chunks.join('\n\n').trim();
@@ -118,7 +129,7 @@ export const ChatTab: React.FC = () => {
 
     const history = messages
       .filter((message) => message.role === 'user' || message.role === 'assistant')
-      .slice(-10)
+      .slice(-8)
       .map((message) => ({
         role: message.role,
         content: message.content,

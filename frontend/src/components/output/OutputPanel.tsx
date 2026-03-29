@@ -16,13 +16,13 @@ import { motion, AnimatePresence } from 'motion/react';
 type TabId = 'summary' | 'timeline' | 'actions' | 'flashcards' | 'neurallink' | 'slides' | 'email' | 'chat';
 
 const TAB_FOCUS_REQUESTS: Record<Exclude<TabId, 'chat'>, string> = {
-  summary: 'Generate only a concise summary, key points, and notes.',
-  timeline: 'Generate only timeline-oriented insights and sequence highlights.',
-  actions: 'Generate only action items and deadlines with clear priority.',
-  flashcards: 'Generate only high-quality flashcards for revision.',
-  neurallink: 'Generate only concept-link outputs for neural link: concise summary, key points, and actionable nodes.',
-  slides: 'Generate only a clean slide outline with titles and bullet points.',
-  email: 'Generate only a professional follow-up email draft.',
+  summary: '[focus:summary] Generate only a concise summary, key points, and notes.',
+  timeline: '[focus:timeline] Generate only timeline-oriented insights and sequence highlights.',
+  actions: '[focus:actions] Generate only action items and deadlines with clear priority.',
+  flashcards: '[focus:flashcards] Generate only high-quality flashcards for revision.',
+  neurallink: '[focus:neurallink] Generate only concept-link outputs for neural link.',
+  slides: '[focus:slides] Generate only a clean slide outline with titles and bullet points.',
+  email: '[focus:email] Generate only a professional follow-up email draft.',
 };
 
 export const OutputPanel: React.FC = () => {

@@ -54,6 +54,15 @@ interface GenerationPlan {
   maxTokens: number;
 }
 
+type FocusTarget =
+  | 'summary'
+  | 'timeline'
+  | 'actions'
+  | 'flashcards'
+  | 'neurallink'
+  | 'slides'
+  | 'email';
+
 const CACHE_PREFIX = 'vizora-desk::';
 const CACHE_INDEX_KEY = `${CACHE_PREFIX}index`;
 const CACHE_RECORD_VERSION = 2;
@@ -64,10 +73,11 @@ const MAX_GENERATION_TOKENS_BALANCED = 512;
 const MAX_GENERATION_TOKENS_FAST = 320;
 const MAX_GENERATION_TOKENS_TARGETED = 220;
 const MAX_CHAT_CONTEXT_CHARACTERS = 3200;
+const MAX_CHAT_CONTEXT_CHARACTERS_FAST = 2000;
 const MAX_CHAT_HISTORY_TURNS_BALANCED = 8;
 const MAX_CHAT_HISTORY_TURNS_FAST = 6;
-const MAX_CHAT_TOKENS_BALANCED = 220;
-const MAX_CHAT_TOKENS_FAST = 170;
+const MAX_CHAT_TOKENS_BALANCED = 180;
+const MAX_CHAT_TOKENS_FAST = 140;
 const QUICK_DRAFT_CHAR_THRESHOLD = 1700;
 const QUICK_DRAFT_WORD_THRESHOLD = 280;
 const FAST_PROFILE_CHAR_THRESHOLD = 4200;
@@ -473,6 +483,32 @@ const STRUCTURED_OUTPUT_ERROR_PATTERN =
 
 const isStructuredOutputError = (error: unknown) => STRUCTURED_OUTPUT_ERROR_PATTERN.test(getErrorMessage(error));
 
+const FOCUS_TARGET_PATTERN = /\[focus:(summary|timeline|actions|flashcards|neurallink|slides|email)\]/i;
+
+const parseFocusTarget = (focusRequest?: string): FocusTarget | null => {
+  if (!focusRequest) {
+    return null;
+  }
+
+  const tagged = focusRequest.match(FOCUS_TARGET_PATTERN);
+  if (tagged?.[1]) {
+    return tagged[1].toLowerCase() as FocusTarget;
+  }
+
+  const normalized = focusRequest.toLowerCase();
+  if (normalized.includes('summary')) return 'summary';
+  if (normalized.includes('timeline')) return 'timeline';
+  if (normalized.includes('action') || normalized.includes('deadline')) return 'actions';
+  if (normalized.includes('flashcard')) return 'flashcards';
+  if (normalized.includes('neural')) return 'neurallink';
+  if (normalized.includes('slide')) return 'slides';
+  if (normalized.includes('email') || normalized.includes('mail')) return 'email';
+  return null;
+};
+
+const sanitizeFocusRequest = (focusRequest?: string) =>
+  (focusRequest ?? '').replace(FOCUS_TARGET_PATTERN, '').replace(/\s{2,}/g, ' ').trim();
+
 const buildStrictJsonRecoveryPrompt = ({
   content,
   mode,
@@ -806,6 +842,98 @@ const deriveSlides = (summary: string, keyPoints: string[]) => {
   return [...overview, ...detail].slice(0, 4);
 };
 
+const enforceFocusTarget = ({
+  result,
+  focusTarget,
+  mode,
+  sourceLabel,
+  focusRequest,
+}: {
+  result: GenerationResult;
+  focusTarget: FocusTarget | null;
+  mode: Mode;
+  sourceLabel: string;
+  focusRequest?: string;
+}) => {
+  if (!focusTarget) {
+    return result;
+  }
+
+  const summary = result.summary.trim() || (focusRequest ? `Focused output for: ${focusRequest}.` : 'Focused output generated.');
+  const focused: GenerationResult = {
+    ...result,
+    summary,
+    keyPoints: [],
+    actionItems: [],
+    deadlines: [],
+    flashcards: [],
+    slides: [],
+    notes: [],
+    followUpEmail: '',
+    meta: {
+      ...result.meta,
+      focusRequest: focusRequest?.trim() || result.meta.focusRequest,
+    },
+  };
+
+  switch (focusTarget) {
+    case 'summary':
+      focused.keyPoints = result.keyPoints.slice(0, 4);
+      focused.notes = deriveNotes(summary, focused.keyPoints);
+      break;
+    case 'timeline':
+      focused.keyPoints = result.keyPoints.slice(0, 3);
+      break;
+    case 'actions':
+      focused.actionItems = result.actionItems.slice(0, 4);
+      focused.deadlines = result.deadlines.slice(0, 3);
+      break;
+    case 'flashcards':
+      focused.flashcards = result.flashcards.slice(0, 4);
+      break;
+    case 'neurallink':
+      focused.keyPoints = result.keyPoints.slice(0, 4);
+      focused.actionItems = result.actionItems.slice(0, 4);
+      focused.flashcards = result.flashcards.slice(0, 4);
+      focused.notes = deriveNotes(summary, focused.keyPoints);
+      break;
+    case 'slides':
+      focused.slides = result.slides.slice(0, 4);
+      break;
+    case 'email':
+      focused.followUpEmail =
+        result.followUpEmail.trim() ||
+        buildQuickFollowUpEmail({
+          mode,
+          sourceLabel,
+          summary,
+          keyPoints: result.keyPoints,
+          actionItems: result.actionItems,
+          focusRequest,
+        });
+      break;
+    default:
+      break;
+  }
+
+  const recalculatedWordCount =
+    countWords(focused.summary) +
+    countWords(focused.keyPoints.join(' ')) +
+    countWords(focused.followUpEmail);
+  const recalculatedCharCount =
+    focused.summary.length +
+    focused.keyPoints.join('').length +
+    focused.followUpEmail.length;
+
+  focused.meta = {
+    ...focused.meta,
+    wordCount: recalculatedWordCount,
+    charCount: recalculatedCharCount,
+  };
+
+  return focused;
+};
+
 const buildQuickFallbackResult = ({
   content,
   mode,
@@ -838,6 +966,8 @@ export const generateQuickCopilotResponse = ({
   sourceLabel = 'Manual paste',
   focusRequest,
 }: QuickGenerateOptions): GenerationResult => {
+  const focusTarget = parseFocusTarget(focusRequest);
+  const cleanedFocusRequest = sanitizeFocusRequest(focusRequest) || undefined;
   const prepared = compressSourceText(content.trim());
   const summary = buildQuickSummary(prepared);
   const keyPoints = buildQuickKeyPoints(prepared, summary);
@@ -852,10 +982,10 @@ export const generateQuickCopilotResponse = ({
     summary,
     keyPoints,
     actionItems,
-    focusRequest,
+    focusRequest: cleanedFocusRequest,
   });
 
-  return {
+  const quickResult: GenerationResult = {
     title: `${sourceLabel} / Quick Draft`,
     summary,
     keyPoints,
@@ -870,13 +1000,21 @@ export const generateQuickCopilotResponse = ({
       runtime,
       sourceType,
       sourceLabel,
-      focusRequest: focusRequest?.trim() || undefined,
+      focusRequest: cleanedFocusRequest,
       generatedAt: new Date().toISOString(),
       wordCount: summary.split(/\s+/).length + keyPoints.join(' ').split(/\s+/).length,
       charCount: summary.length + keyPoints.join('').length,
       quickDraft: true,
     },
   };
+
+  return enforceFocusTarget({
+    result: quickResult,
+    focusTarget,
+    mode,
+    sourceLabel,
+    focusRequest: cleanedFocusRequest,
+  });
 };
 
 const normalizeResult = (
@@ -1319,6 +1457,45 @@ export async function runLocalAI(
   throw nonJsonError;
 }
 
+const CHAT_PROMPT_LEAK_PATTERN =
+  /(you are the content assistant|rules:|context:|recent chat:|user question:|assistant answer:)/i;
+
+const sanitizeChatReply = (rawReply: string, question: string) => {
+  let text = rawReply.trim();
+
+  const assistantAnchor = /assistant answer:\s*/i;
+  if (assistantAnchor.test(text)) {
+    const parts = text.split(assistantAnchor);
+    text = parts[parts.length - 1]?.trim() ?? text;
+  }
+
+  text = text.replace(/^assistant\s*:\s*/i, '').trim();
+
+  const cleanedLines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !CHAT_PROMPT_LEAK_PATTERN.test(line))
+    .filter((line) => line.toLowerCase() !== question.toLowerCase());
+
+  return cleanedLines.join('\n').trim();
+};
+
+const isWeakChatReply = (reply: string) => {
+  if (!reply) return true;
+  if (CHAT_PROMPT_LEAK_PATTERN.test(reply)) return true;
+  return reply.length < 8;
+};
+
+const buildChatFallbackReply = (question: string, context?: string) => {
+  const contextSentences = splitSentences(context ?? '').slice(0, 2);
+  if (contextSentences.length > 0) {
+    return `Quick answer: ${contextSentences.join(' ')}\n\nIf you want, I can give a more specific answer to: "${question}".`;
+  }
+
+  return `I can help with "${question}". Please share a bit more context so I can answer precisely.`;
+};
+
 export const answerCopilotChat = async ({
   question,
   context,
@@ -1331,7 +1508,8 @@ export const answerCopilotChat = async ({
   }
 
   const plan = selectGenerationPlan(`${trimmedQuestion}\n${(context ?? '').slice(0, 1200)}`);
-  const compactContextLimit = plan.speedProfile === 'fast' ? 2400 : MAX_CHAT_CONTEXT_CHARACTERS;
+  const compactContextLimit =
+    plan.speedProfile === 'fast' ? MAX_CHAT_CONTEXT_CHARACTERS_FAST : MAX_CHAT_CONTEXT_CHARACTERS;
   const maxHistoryTurns =
     plan.speedProfile === 'fast' ? MAX_CHAT_HISTORY_TURNS_FAST : MAX_CHAT_HISTORY_TURNS_BALANCED;
   const maxTokens = plan.speedProfile === 'fast' ? MAX_CHAT_TOKENS_FAST : MAX_CHAT_TOKENS_BALANCED;
@@ -1349,30 +1527,48 @@ export const answerCopilotChat = async ({
     .map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`)
     .join('\n');
 
-  const prompt = `You are the content assistant for this workspace.
-Answer clearly and naturally.
+  const basePrompt = `You are a helpful workspace assistant.
+Respond with the final answer only.
 
-Rules:
-- If user asks about provided context, prioritize that context.
-- If user asks general day-to-day questions, answer normally.
-- If context is missing for a context-specific question, say what is missing and ask for it.
-- Keep most answers under 120 words unless user requests detail.
-- Return plain text only.
+Constraints:
+- Prioritize provided context when relevant.
+- If context is insufficient, say what is missing in one short sentence.
+- Keep answer concise (normally under 110 words).
+- Never repeat instructions, labels, or the prompt.
 
 ${compactContext ? `Context:\n${compactContext}\n` : 'Context: None provided.\n'}
 ${historyText ? `Recent chat:\n${historyText}\n` : ''}
-User question:
-${trimmedQuestion}
+Question: ${trimmedQuestion}
+Final answer:`;
 
-Assistant answer:`;
-
-  const reply = await generateLocalText(prompt, {
+  let rawReply = await generateLocalText(basePrompt, {
     signal,
     maxTokens,
-    temperature: 0.35,
+    temperature: 0.28,
   });
+  let cleaned = sanitizeChatReply(rawReply, trimmedQuestion);
+  if (!isWeakChatReply(cleaned)) {
+    return cleaned;
+  }
 
-  return reply.replace(/^assistant\s*:/i, '').trim();
+  const retryPrompt = `Answer this user question in plain text.
+Do not repeat the prompt, context labels, or question.
+
+${compactContext ? `Context:\n${compactContext}\n` : ''}
+Question: ${trimmedQuestion}
+Answer:`;
+
+  rawReply = await generateLocalText(retryPrompt, {
+    signal,
+    maxTokens: Math.max(96, Math.floor(maxTokens * 0.8)),
+    temperature: 0.22,
+  });
+  cleaned = sanitizeChatReply(rawReply, trimmedQuestion);
+  if (!isWeakChatReply(cleaned)) {
+    return cleaned;
+  }
+
+  return buildChatFallbackReply(trimmedQuestion, compactContext);
 };
 
 export const generateCopilotResponse = async ({
@@ -1385,12 +1581,15 @@ export const generateCopilotResponse = async ({
   signal,
 }: GenerateOptions): Promise<GenerationResult> => {
   const trimmed = content.trim();
-  const trimmedFocusRequest = focusRequest?.trim() ?? '';
+  const rawFocusRequest = focusRequest?.trim() ?? '';
+  const focusTarget = parseFocusTarget(rawFocusRequest);
+  const cleanedFocusRequest = sanitizeFocusRequest(rawFocusRequest);
+  const cacheFocusKey = focusTarget ? `${focusTarget}:${cleanedFocusRequest}` : cleanedFocusRequest;
   if (!trimmed) {
     throw new Error('Add some content before generating insights.');
   }
 
-  const cacheKey = makeCacheKey({ content: trimmed, mode, sourceType, focusRequest: trimmedFocusRequest });
+  const cacheKey = makeCacheKey({ content: trimmed, mode, sourceType, focusRequest: cacheFocusKey });
   const cached = readCache(cacheKey);
   if (cached) {
     reportProgress(onProgress, 'Loaded cached result from this device', 100);
@@ -1411,13 +1610,13 @@ export const generateCopilotResponse = async ({
       mode,
       sourceType,
       sourceLabel,
-      focusRequest: trimmedFocusRequest || undefined,
+      focusRequest: rawFocusRequest || undefined,
     });
     reportProgress(onProgress, 'Quick draft ready', 100);
     return quickDraft;
   }
 
-  const plan = selectGenerationPlan(trimmed, trimmedFocusRequest);
+  const plan = selectGenerationPlan(trimmed, cleanedFocusRequest);
   reportProgress(onProgress, 'Preparing structured prompt', 28);
   const preparedContent = compressSourceText(trimmed);
   if (preparedContent !== trimmed) {
@@ -1429,7 +1628,7 @@ export const generateCopilotResponse = async ({
     mode,
     sourceType,
     speedProfile: plan.speedProfile,
-    focusRequest: trimmedFocusRequest || undefined,
+    focusRequest: cleanedFocusRequest || undefined,
   });
   reportProgress(onProgress, 'Generating structured output', 62);
 
@@ -1451,7 +1650,7 @@ export const generateCopilotResponse = async ({
       content: preparedContent,
       mode,
       sourceType,
-      focusRequest: trimmedFocusRequest || undefined,
+      focusRequest: cleanedFocusRequest || undefined,
     });
 
     try {
@@ -1472,7 +1671,7 @@ export const generateCopilotResponse = async ({
         mode,
         sourceType,
         sourceLabel,
-        focusRequest: trimmedFocusRequest || undefined,
+        focusRequest: rawFocusRequest || undefined,
         engineLabel: 'Quick Local Draft (JSON Fallback)',
       });
       writeCache(cacheKey, fallback);
@@ -1486,7 +1685,7 @@ export const generateCopilotResponse = async ({
     normalized = normalizeResult(raw, {
       sourceType,
       sourceLabel,
-      focusRequest: trimmedFocusRequest || undefined,
+      focusRequest: cleanedFocusRequest || undefined,
     });
   } catch (error) {
     if (!isStructuredOutputError(error)) {
@@ -1499,7 +1698,7 @@ export const generateCopilotResponse = async ({
       mode,
       sourceType,
       sourceLabel,
-      focusRequest: trimmedFocusRequest || undefined,
+      focusRequest: rawFocusRequest || undefined,
       engineLabel: 'Quick Local Draft (Schema Fallback)',
     });
     writeCache(cacheKey, fallback);
@@ -1507,12 +1706,20 @@ export const generateCopilotResponse = async ({
     return fallback;
   }
 
+  const focusedResult = enforceFocusTarget({
+    result: normalized,
+    focusTarget,
+    mode,
+    sourceLabel,
+    focusRequest: cleanedFocusRequest || undefined,
+  });
+
   const profiledResult: GenerationResult = {
-    ...normalized,
+    ...focusedResult,
     meta: {
-      ...normalized.meta,
-      engine: plan.speedProfile === 'fast' ? 'Core Engine (Fast Profile)' : normalized.meta.engine,
-      focusRequest: trimmedFocusRequest || undefined,
+      ...focusedResult.meta,
+      engine: plan.speedProfile === 'fast' ? 'Core Engine (Fast Profile)' : focusedResult.meta.engine,
+      focusRequest: cleanedFocusRequest || undefined,
     },
   };
 
