@@ -433,14 +433,14 @@ export const fetchYoutubeTranscript = async (
     }
 
     return {
-      text: `YouTube Video: ${title}\nSource URL: ${url.trim()}\n\nNo transcript was provided or auto-fetched. Generate a best-effort output from the available source title and metadata only.\nLimitations:\n- You cannot summarize specific video content accurately without transcript/captions.\n- Provide transcript text for high-quality insights in the future.`,
+      text: `YouTube Video: ${title}\nSource URL: ${url.trim()}\n\n[System Note: No transcript was provided or auto-fetched for this video.]\n\nTask for Assistant:\n- Analyze the video title and URL metadata only.\n- Provide a high-level conceptual summary of what this video likely covers.\n- Suggest 3 potential learning or work-related objectives for this topic.\n- Note that specific video details (like speakers or exact quotes) are unavailable.`,
       label: title,
       autoFetched: false,
       timeline: [],
     };
   } catch {
     return {
-      text: `YouTube source URL: ${url.trim()}\n\nCould not auto-fetch transcript due to a network error. Generate a best-effort output from the URL only.\nLimitations:\n- You cannot summarize video content accurately without transcript/captions.`,
+      text: `YouTube source URL: ${url.trim()}\n\n[System Note: Network error occurred during transcript fetch.]\n\nTask for Assistant:\n- Conduct a best-effort analysis based on the URL and video ID (${videoId}).\n- Outline the likely core subject matter.\n- Frame the output as a preliminary scan until a full transcript can be provided.`,
       label: `YouTube ${videoId}`,
       autoFetched: false,
       timeline: [],

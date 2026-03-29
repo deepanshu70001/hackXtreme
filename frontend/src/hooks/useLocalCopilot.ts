@@ -106,8 +106,8 @@ export const useLocalCopilot = () => {
     });
 
     if (!effectiveContent.trim()) {
-      setError('Add content in the editor or provide a PDF/YouTube source before generating.');
-      setStatus('No source content found. Upload a PDF, add a YouTube source, or paste text.');
+      setError('Please add a source first: Paste text, upload a PDF, or link a YouTube video.');
+      setStatus('Workspace is empty. Provide some content to generate insights.');
       return;
     }
 

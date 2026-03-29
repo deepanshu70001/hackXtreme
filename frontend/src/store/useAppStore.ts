@@ -56,7 +56,7 @@ export const useAppStore = create<AppState>()(
         }),
       addToHistory: (title: string, result: GenerationResult) =>
         set((state) => {
-          const normalizedTitle = title.trim() || 'Untitled capture';
+          const normalizedTitle = (result.title || title).trim() || 'Untitled capture';
           const dateLabel = new Date().toLocaleString(undefined, {
             month: 'short',
             day: 'numeric',
