@@ -3,6 +3,8 @@ import {
   formatRunAnywhereError,
   generateCopilotResponse,
   generateQuickCopilotResponse,
+  shouldAutoWarmupModel,
+  shouldUseQuickDraftBeforeWarmup,
   warmupLocalModel,
 } from '../lib/ai/runAnywhere';
 import { useAppStore } from '../store/useAppStore';
@@ -23,6 +25,15 @@ export const useLocalCopilot = () => {
     let isMounted = true;
 
     const boot = async () => {
+      const shouldWarmupImmediately = shouldAutoWarmupModel();
+      if (!shouldWarmupImmediately) {
+        setEngine('Core Engine', 'On-Demand');
+        setReady(false);
+        setProgress(0);
+        setStatus('Adaptive mode enabled. Engine warmup is deferred until needed for smoother mobile usage.');
+        return;
+      }
+
       setReady(false);
       setProgress(8);
       setStatus('Loading processing engine');
@@ -86,6 +97,7 @@ export const useLocalCopilot = () => {
       timedOut = true;
       controller.abort();
     }, timeoutLimit);
+    const shouldUseAdaptiveQuickDraft = !isReady && shouldUseQuickDraftBeforeWarmup(effectiveContent);
 
     setProcessing(true);
     setError(null);
@@ -95,7 +107,7 @@ export const useLocalCopilot = () => {
       setStatus('Preparing engine for generation...');
       setProgress(45);
 
-      if (!isReady) {
+      if (!isReady && !shouldUseAdaptiveQuickDraft) {
         setStatus('Preparing engine for first full generation...');
         setProgress(52);
         const state = await warmupLocalModel({
@@ -106,6 +118,11 @@ export const useLocalCopilot = () => {
         });
         setEngine(state.engineLabel, state.runtimeLabel);
         setReady(state.ready);
+      } else if (shouldUseAdaptiveQuickDraft) {
+        setEngine('Quick Draft', 'Adaptive');
+        setReady(false);
+        setStatus('Adaptive quick draft enabled for this input to keep your device responsive.');
+        setProgress(55);
       }
 
       const result = await generateCopilotResponse({
@@ -124,6 +141,10 @@ export const useLocalCopilot = () => {
       startTransition(() => {
         setResult(result);
       });
+      if (result.meta.quickDraft) {
+        setEngine('Quick Draft', 'Adaptive');
+        setReady(false);
+      }
       setStatus('Processing complete');
       setProgress(100);
     } catch (error) {
@@ -132,7 +153,19 @@ export const useLocalCopilot = () => {
         !timedOut && message !== 'Generation canceled.' && QUICK_FALLBACK_ERROR_PATTERN.test(message);
 
       if (timedOut) {
-        setStatus('Generation timed out. Try shorter input.');
+        const timeoutFallback = generateQuickCopilotResponse({
+          content: effectiveContent,
+          mode,
+          sourceType,
+          sourceLabel,
+        });
+        storedResult = timeoutFallback;
+        startTransition(() => {
+          setResult(timeoutFallback);
+        });
+        setStatus('Core generation timed out. A quick draft was generated to avoid losing output.');
+        setProgress(100);
+        setError(null);
       } else if (message === 'Generation canceled.') {
         setStatus('Generation canceled.');
       } else if (shouldFallbackToQuickDraft) {

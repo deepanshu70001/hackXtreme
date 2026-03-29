@@ -20,6 +20,22 @@ const GENERAL_SUGGESTIONS = [
   'How can I plan my day better?',
 ];
 
+const getScrollBehavior = (): ScrollBehavior => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return 'auto';
+  }
+
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const touchDevice = (navigator.maxTouchPoints ?? 0) > 0;
+  const narrowViewport = window.matchMedia?.('(max-width: 920px)').matches ?? false;
+
+  if (reduceMotion || (touchDevice && narrowViewport)) {
+    return 'auto';
+  }
+
+  return 'smooth';
+};
+
 export const ChatTab: React.FC = () => {
   const { input, sourceContent, result, sourceLabel } = useAppStore();
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -69,7 +85,7 @@ export const ChatTab: React.FC = () => {
       return;
     }
 
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    endRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'end' });
   }, [messages.length, isThinking]);
 
   useEffect(

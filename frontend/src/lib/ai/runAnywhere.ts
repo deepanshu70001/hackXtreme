@@ -39,15 +39,39 @@ interface ChatOptions {
   signal?: AbortSignal;
 }
 
+type GenerationSpeedProfile = 'fast' | 'balanced';
+
+interface DeviceProfile {
+  isMobile: boolean;
+  lowMemory: boolean;
+  constrained: boolean;
+}
+
+interface GenerationPlan {
+  speedProfile: GenerationSpeedProfile;
+  maxTokens: number;
+}
+
 const CACHE_PREFIX = 'vizora-desk::';
 const CACHE_INDEX_KEY = `${CACHE_PREFIX}index`;
 const CACHE_RECORD_VERSION = 2;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const CACHE_MAX_ENTRIES = 18;
 const MAX_SOURCE_CHARACTERS = 3800;
-const MAX_GENERATION_TOKENS = 512;
+const MAX_GENERATION_TOKENS_BALANCED = 512;
+const MAX_GENERATION_TOKENS_FAST = 320;
 const MAX_CHAT_CONTEXT_CHARACTERS = 3200;
-const MAX_CHAT_HISTORY_TURNS = 8;
+const MAX_CHAT_HISTORY_TURNS_BALANCED = 8;
+const MAX_CHAT_HISTORY_TURNS_FAST = 6;
+const MAX_CHAT_TOKENS_BALANCED = 220;
+const MAX_CHAT_TOKENS_FAST = 170;
+const QUICK_DRAFT_CHAR_THRESHOLD = 1700;
+const QUICK_DRAFT_WORD_THRESHOLD = 280;
+const FAST_PROFILE_CHAR_THRESHOLD = 4200;
+const FAST_PROFILE_WORD_THRESHOLD = 700;
+const LOW_MEMORY_GB_THRESHOLD = 4;
+const PROGRESS_THROTTLE_MS = 160;
+const PROGRESS_MIN_DELTA = 2;
 
 interface ModelCandidate {
   id: string;
@@ -96,9 +120,35 @@ let runtime: InferenceRuntime = 'wasm';
 let modulesPromise: Promise<{ core: Record<string, unknown>; llama: Record<string, unknown> }> | null = null;
 let modelPromise: Promise<void> | null = null;
 let activeModelCandidate = MODEL_CANDIDATES[0];
+let modelReady = false;
+let lastProgressStatus = '';
+let lastProgressValue = -1;
+let lastProgressAt = 0;
 
 const reportProgress = (onProgress: ProgressCallback | undefined, status: string, progress: number) => {
-  onProgress?.(status, Math.max(0, Math.min(100, progress)));
+  if (!onProgress) {
+    return;
+  }
+
+  const bounded = Math.max(0, Math.min(100, progress));
+  const now = Date.now();
+  const delta = Math.abs(bounded - lastProgressValue);
+  const statusChanged = status !== lastProgressStatus;
+  const shouldForce = bounded === 0 || bounded === 100;
+  const shouldEmit =
+    shouldForce ||
+    statusChanged ||
+    delta >= PROGRESS_MIN_DELTA ||
+    now - lastProgressAt >= PROGRESS_THROTTLE_MS;
+
+  if (!shouldEmit) {
+    return;
+  }
+
+  onProgress(status, bounded);
+  lastProgressStatus = status;
+  lastProgressValue = bounded;
+  lastProgressAt = now;
 };
 
 export const formatRunAnywhereError = (error: unknown) => {
@@ -434,6 +484,71 @@ const compressSourceText = (value: string) => {
     '[Source excerpt: closing]',
     tail,
   ].join('\n\n');
+};
+
+const countWords = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+};
+
+const getDeviceProfile = (): DeviceProfile => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return { isMobile: false, lowMemory: false, constrained: false };
+  }
+
+  const ua = navigator.userAgent.toLowerCase();
+  const isMobileUA = /android|iphone|ipad|ipod|mobile|iemobile|opera mini/.test(ua);
+  const hasTouch = (navigator.maxTouchPoints ?? 0) > 0;
+  const isNarrowViewport = window.matchMedia?.('(max-width: 920px)').matches ?? window.innerWidth < 920;
+  const navWithMemory = navigator as Navigator & { deviceMemory?: number };
+  const deviceMemory = typeof navWithMemory.deviceMemory === 'number' ? navWithMemory.deviceMemory : null;
+  const lowMemory = deviceMemory !== null && deviceMemory <= LOW_MEMORY_GB_THRESHOLD;
+  const mobileLikeDevice = isMobileUA || (hasTouch && isNarrowViewport);
+  const constrained = lowMemory || mobileLikeDevice;
+
+  return {
+    isMobile: mobileLikeDevice,
+    lowMemory,
+    constrained,
+  };
+};
+
+const selectGenerationPlan = (content: string): GenerationPlan => {
+  const normalized = normalizeSourceText(content);
+  const words = countWords(normalized);
+  const isShort =
+    normalized.length <= FAST_PROFILE_CHAR_THRESHOLD ||
+    words <= FAST_PROFILE_WORD_THRESHOLD;
+
+  if (getDeviceProfile().constrained || isShort) {
+    return {
+      speedProfile: 'fast',
+      maxTokens: MAX_GENERATION_TOKENS_FAST,
+    };
+  }
+
+  return {
+    speedProfile: 'balanced',
+    maxTokens: MAX_GENERATION_TOKENS_BALANCED,
+  };
+};
+
+export const shouldAutoWarmupModel = () => !getDeviceProfile().constrained;
+
+export const shouldUseQuickDraftBeforeWarmup = (content: string) => {
+  if (modelReady) {
+    return false;
+  }
+
+  const device = getDeviceProfile();
+  if (!device.constrained) {
+    return false;
+  }
+
+  const normalized = normalizeSourceText(content);
+  const words = countWords(normalized);
+
+  return normalized.length <= QUICK_DRAFT_CHAR_THRESHOLD && words <= QUICK_DRAFT_WORD_THRESHOLD;
 };
 
 const splitSentences = (value: string) => {
@@ -885,7 +1000,9 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
       }
 
       runtime = getAccelerationRuntime(llama);
+      modelReady = true;
     })().catch((error) => {
+      modelReady = false;
       modelPromise = null;
       throw error;
     });
@@ -917,13 +1034,15 @@ export async function generateLocalText(
     signal,
     maxTokens,
     temperature,
+    onProgress,
   }: {
     signal?: AbortSignal;
     maxTokens?: number;
     temperature?: number;
+    onProgress?: ProgressCallback;
   } = {},
 ) {
-  await ensureModelReady();
+  await ensureModelReady(onProgress);
   const { llama } = await loadModules();
   const TextGeneration = llama.TextGeneration as
     | {
@@ -942,57 +1061,74 @@ export async function generateLocalText(
     throw new Error('Text generation module was not available.');
   }
 
+  reportProgress(onProgress, 'Running local inference', 84);
   const { stream, result, cancel } = await TextGeneration.generateStream(prompt, {
-    maxTokens: maxTokens ?? MAX_GENERATION_TOKENS,
+    maxTokens: maxTokens ?? MAX_GENERATION_TOKENS_BALANCED,
     temperature: temperature ?? 0.2,
   });
 
-  let wasCanceled = false;
-  const abortHandler = () => {
-    wasCanceled = true;
-    cancel?.();
-  };
-
-  signal?.addEventListener('abort', abortHandler);
   if (signal?.aborted) {
-    abortHandler();
-  }
-
-  let streamedText = '';
-  try {
-    for await (const token of stream) {
-      if (signal?.aborted || wasCanceled) {
-        throw new DOMException('Generation aborted', 'AbortError');
-      }
-
-      streamedText += typeof token === 'string' ? token : '';
-    }
-  } catch (error) {
-    if (signal?.aborted || wasCanceled) {
-      throw new DOMException('Generation aborted', 'AbortError');
-    }
-
-    throw error;
-  } finally {
-    signal?.removeEventListener('abort', abortHandler);
-  }
-
-  if (signal?.aborted || wasCanceled) {
+    cancel?.();
     throw new DOMException('Generation aborted', 'AbortError');
   }
 
-  const finalResult = await result;
-  const outputText =
-    typeof finalResult?.text === 'string' && finalResult.text.trim().length > 0 ? finalResult.text : streamedText;
+  let removeAbortListener: (() => void) | null = null;
+  const abortPromise = signal
+    ? new Promise<never>((_, reject) => {
+        const abortHandler = () => {
+          cancel?.();
+          reject(new DOMException('Generation aborted', 'AbortError'));
+        };
 
-  return outputText.trim();
+        signal.addEventListener('abort', abortHandler, { once: true });
+        removeAbortListener = () => {
+          signal.removeEventListener('abort', abortHandler);
+        };
+      })
+    : null;
+
+  const streamPumpPromise = (async () => {
+    for await (const _token of stream) {
+      if (signal?.aborted) {
+        throw new DOMException('Generation aborted', 'AbortError');
+      }
+    }
+  })();
+
+  let finalResult: { text?: string } | undefined;
+  try {
+    await (abortPromise ? Promise.race([streamPumpPromise, abortPromise]) : streamPumpPromise);
+    finalResult = abortPromise ? await Promise.race([result, abortPromise]) : await result;
+  } finally {
+    removeAbortListener?.();
+  }
+
+  if (signal?.aborted) {
+    throw new DOMException('Generation aborted', 'AbortError');
+  }
+
+  return typeof finalResult?.text === 'string' ? finalResult.text.trim() : '';
 }
 
-export async function runLocalAI(prompt: string, { signal }: { signal?: AbortSignal } = {}) {
+export async function runLocalAI(
+  prompt: string,
+  {
+    signal,
+    maxTokens,
+    temperature,
+    onProgress,
+  }: {
+    signal?: AbortSignal;
+    maxTokens?: number;
+    temperature?: number;
+    onProgress?: ProgressCallback;
+  } = {},
+) {
   const outputText = await generateLocalText(prompt, {
     signal,
-    maxTokens: MAX_GENERATION_TOKENS,
-    temperature: 0.2,
+    maxTokens: maxTokens ?? MAX_GENERATION_TOKENS_BALANCED,
+    temperature: temperature ?? 0.2,
+    onProgress,
   });
 
   const parsed = parseRunAnywhereJson(outputText);
@@ -1019,14 +1155,20 @@ export const answerCopilotChat = async ({
     throw new Error('Ask a question to start the chat.');
   }
 
-  const compactContext = context ? compressSourceText(context).slice(0, MAX_CHAT_CONTEXT_CHARACTERS) : '';
+  const plan = selectGenerationPlan(`${trimmedQuestion}\n${(context ?? '').slice(0, 1200)}`);
+  const compactContextLimit = plan.speedProfile === 'fast' ? 2400 : MAX_CHAT_CONTEXT_CHARACTERS;
+  const maxHistoryTurns =
+    plan.speedProfile === 'fast' ? MAX_CHAT_HISTORY_TURNS_FAST : MAX_CHAT_HISTORY_TURNS_BALANCED;
+  const maxTokens = plan.speedProfile === 'fast' ? MAX_CHAT_TOKENS_FAST : MAX_CHAT_TOKENS_BALANCED;
+
+  const compactContext = context ? compressSourceText(context).slice(0, compactContextLimit) : '';
   const trimmedHistory = history
     .map((turn) => ({
       role: turn.role,
       content: turn.content.trim(),
     }))
     .filter((turn) => turn.content.length > 0)
-    .slice(-MAX_CHAT_HISTORY_TURNS);
+    .slice(-maxHistoryTurns);
 
   const historyText = trimmedHistory
     .map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`)
@@ -1051,7 +1193,7 @@ Assistant answer:`;
 
   const reply = await generateLocalText(prompt, {
     signal,
-    maxTokens: 220,
+    maxTokens,
     temperature: 0.35,
   });
 
@@ -1085,19 +1227,50 @@ export const generateCopilotResponse = async ({
     };
   }
 
+  if (shouldUseQuickDraftBeforeWarmup(trimmed)) {
+    reportProgress(onProgress, 'Using adaptive quick draft for this device', 42);
+    const quickDraft = generateQuickCopilotResponse({
+      content: trimmed,
+      mode,
+      sourceType,
+      sourceLabel,
+    });
+    reportProgress(onProgress, 'Quick draft ready', 100);
+    return quickDraft;
+  }
+
+  const plan = selectGenerationPlan(trimmed);
   reportProgress(onProgress, 'Preparing structured prompt', 28);
   const preparedContent = compressSourceText(trimmed);
   if (preparedContent !== trimmed) {
     reportProgress(onProgress, 'Condensing long source for faster local inference', 38);
   }
 
-  const prompt = buildRunAnywherePrompt({ content: preparedContent, mode, sourceType });
+  const prompt = buildRunAnywherePrompt({
+    content: preparedContent,
+    mode,
+    sourceType,
+    speedProfile: plan.speedProfile,
+  });
   reportProgress(onProgress, 'Generating structured output', 62);
 
-  const raw = await runLocalAI(prompt, { signal });
+  const raw = await runLocalAI(prompt, {
+    signal,
+    maxTokens: plan.maxTokens,
+    temperature: plan.speedProfile === 'fast' ? 0.15 : 0.2,
+    onProgress,
+  });
   const normalized = normalizeResult(raw, { sourceType, sourceLabel });
-  writeCache(cacheKey, normalized);
+  const profiledResult: GenerationResult = {
+    ...normalized,
+    meta: {
+      ...normalized.meta,
+      engine: plan.speedProfile === 'fast' ? 'Core Engine (Fast Profile)' : normalized.meta.engine,
+    },
+  };
+
+  writeCache(cacheKey, profiledResult);
   reportProgress(onProgress, 'Generation complete', 100);
-  return normalized;
+  return profiledResult;
 };
 
