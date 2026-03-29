@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SummaryTab } from './SummaryTab';
 import { ActionsTab } from './ActionsTab';
 import { FlashcardsTab } from './FlashcardsTab';
@@ -17,7 +17,9 @@ type TabId = 'summary' | 'timeline' | 'actions' | 'flashcards' | 'neurallink' | 
 
 export const OutputPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
+  const [isCompactTabs, setIsCompactTabs] = useState(false);
   const { result, isProcessing } = useAppStore();
+  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const tabs: { id: TabId; label: string; icon: any; color: string }[] = [
     { id: 'summary', label: 'Summary', icon: FileText, color: 'text-accent-primary' },
@@ -30,8 +32,21 @@ export const OutputPanel: React.FC = () => {
     { id: 'chat', label: 'Chat', icon: MessageSquare, color: 'text-accent-tertiary' },
   ];
 
+  useEffect(() => {
+    const node = tabsContainerRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? node.clientWidth;
+      setIsCompactTabs(width < 960);
+    });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="relative flex h-full min-h-[30rem] flex-col overflow-hidden bg-transparent sm:min-h-[34rem]">
+    <div className="relative flex h-full min-h-[30rem] flex-col overflow-hidden bg-transparent sm:min-h-[34rem] lg:min-h-0">
       <AnimatePresence mode="wait">
         {isProcessing && !result ? (
           <motion.div
@@ -42,9 +57,9 @@ export const OutputPanel: React.FC = () => {
             className="flex h-full flex-col gap-5 p-4 sm:gap-6 sm:p-6 md:p-8"
           >
             <div className="flex flex-col gap-1">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Local Analysis</div>
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Processing</div>
               <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Generating Insights</h2>
-              <p className="text-sm text-text-secondary/70">The browser model is analyzing your content and streaming a structured result.</p>
+              <p className="text-sm text-text-secondary/70">Your content is being processed and organized into structured output.</p>
             </div>
             <div className="glass flex-1 overflow-hidden rounded-3xl p-5 sm:p-6 md:p-8">
               <div className="max-w-3xl mx-auto">
@@ -70,7 +85,7 @@ export const OutputPanel: React.FC = () => {
                   <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{result ? 'Insights' : 'Ready to Assist'}</h2>
                   {result ? (
                     <p className="text-sm text-text-secondary/70">
-                      {result.meta.engine} / {result.meta.runtime.toUpperCase()} / {result.meta.cached ? 'Cached on-device' : 'Fresh local run'}
+                      {result.meta.runtime.toUpperCase()} runtime / {result.meta.cached ? 'Loaded from recent cache' : 'Generated in this session'}
                     </p>
                   ) : (
                     <p className="text-sm text-text-secondary/70">
@@ -84,11 +99,16 @@ export const OutputPanel: React.FC = () => {
               {isProcessing && (
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating structured output with RunAnywhere...
+                  Building structured output...
                 </div>
               )}
 
-              <div className="glass flex w-full items-center gap-1 overflow-x-auto rounded-3xl p-1.5 custom-scrollbar">
+              <div
+                ref={tabsContainerRef}
+                className={`glass flex w-full items-center gap-1 rounded-3xl p-1.5 custom-scrollbar ${
+                  isCompactTabs ? 'overflow-x-auto' : 'overflow-hidden'
+                }`}
+              >
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const active = activeTab === tab.id;
@@ -96,7 +116,9 @@ export const OutputPanel: React.FC = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-2.5 py-2.5 transition-all duration-300 md:min-w-0 md:flex-1 ${
+                      className={`relative flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2.5 transition-all duration-300 ${
+                        isCompactTabs ? 'min-w-[8.5rem]' : 'min-w-0 flex-1'
+                      } ${
                         active ? 'text-white' : 'text-text-secondary hover:text-white'
                       }`}
                       title={tab.label}
@@ -109,11 +131,16 @@ export const OutputPanel: React.FC = () => {
                         />
                       )}
                       <Icon className={`w-3.5 h-3.5 relative z-10 shrink-0 ${active ? tab.color : ''}`} />
-                      <span className="relative z-10 truncate text-[11px] font-bold">{tab.label}</span>
+                      <span className="relative z-10 text-[11px] font-bold">{tab.label}</span>
                     </button>
                   );
                 })}
               </div>
+              {isCompactTabs && (
+                <p className="px-1 text-[11px] text-text-secondary/80">
+                  Scroll horizontally to view all features with full labels.
+                </p>
+              )}
             </div>
 
             <div className="glass relative flex-1 overflow-y-auto rounded-[28px] p-4 custom-scrollbar no-scrollbar sm:p-6 md:rounded-[36px] md:p-8">

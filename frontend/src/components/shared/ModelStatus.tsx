@@ -23,7 +23,7 @@ export const ModelStatus: React.FC = () => {
             }`}
           />
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-secondary">
-            Local model
+            System status
           </span>
         </div>
 
@@ -51,13 +51,13 @@ export const ModelStatus: React.FC = () => {
 
         {hasFailure && (
           <div className="w-full rounded-2xl border border-rose-400/15 bg-rose-400/10 px-3 py-2 text-[11px] leading-5 text-rose-100 sm:w-auto sm:rounded-full sm:py-1.5">
-            Full local model is unavailable in this browser session. Quick fallback generation is still available.
+            Full processing is unavailable in this session. Quick draft mode is still available.
           </div>
         )}
 
         {isFallback && (
           <div className="w-full rounded-2xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-[11px] leading-5 text-sky-100 sm:w-auto sm:rounded-full sm:py-1.5">
-            Fallback mode active: fast local draft generation is enabled.
+            Quick draft mode is active for faster responses.
           </div>
         )}
       </div>

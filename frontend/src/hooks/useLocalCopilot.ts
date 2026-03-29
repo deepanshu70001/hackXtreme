@@ -25,7 +25,7 @@ export const useLocalCopilot = () => {
     const boot = async () => {
       setReady(false);
       setProgress(8);
-      setStatus('Loading RunAnywhere in the browser');
+      setStatus('Loading processing engine');
 
       try {
         const state = await warmupLocalModel({
@@ -47,10 +47,10 @@ export const useLocalCopilot = () => {
         if (!isMounted) return;
 
         const message = formatRunAnywhereError(error);
-        setEngine('RunAnywhere SDK', 'Unavailable');
+        setEngine('Core Engine', 'Unavailable');
         setReady(false);
         setProgress(0);
-        setStatus(`${message} Generation will retry local model initialization on demand.`);
+        setStatus(`${message} The app will retry initialization on demand.`);
       }
     };
 
@@ -92,11 +92,11 @@ export const useLocalCopilot = () => {
     setProgress(12);
 
     try {
-      setStatus('Preparing RunAnywhere model for generation...');
+      setStatus('Preparing engine for generation...');
       setProgress(45);
 
       if (!isReady) {
-        setStatus('Preparing RunAnywhere model for first full generation...');
+        setStatus('Preparing engine for first full generation...');
         setProgress(52);
         const state = await warmupLocalModel({
           onProgress: (status, progress) => {
@@ -124,7 +124,7 @@ export const useLocalCopilot = () => {
       startTransition(() => {
         setResult(result);
       });
-      setStatus('RunAnywhere refinement complete');
+      setStatus('Processing complete');
       setProgress(100);
     } catch (error) {
       const message = formatRunAnywhereError(error);
@@ -136,7 +136,7 @@ export const useLocalCopilot = () => {
       } else if (message === 'Generation canceled.') {
         setStatus('Generation canceled.');
       } else if (shouldFallbackToQuickDraft) {
-        setEngine('Quick Local Draft', 'Fallback');
+        setEngine('Quick Draft', 'Fallback');
         setReady(false);
         const quickFallback = generateQuickCopilotResponse({
           content: effectiveContent,
@@ -148,7 +148,7 @@ export const useLocalCopilot = () => {
         startTransition(() => {
           setResult(quickFallback);
         });
-        setStatus('RunAnywhere unavailable. Generated a quick local draft while local model retries remain available.');
+        setStatus('Primary engine unavailable. Generated a quick draft while retries remain available.');
         setProgress(100);
         setError(null);
       } else {

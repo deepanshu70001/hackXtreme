@@ -109,18 +109,18 @@ export const formatRunAnywhereError = (error: unknown) => {
   const message =
     error instanceof Error && error.message.trim().length > 0
       ? error.message.trim()
-      : 'RunAnywhere generation failed. Please try again.';
+      : 'Generation failed. Please try again.';
 
   if (/dynamically imported module|failed to fetch|module script/i.test(message)) {
-    return 'RunAnywhere assets did not load correctly. Restart the dev server so the SDK WASM files are served with the updated Vite config.';
+    return 'Engine assets did not load correctly. Restart the app and try again.';
   }
 
   if (/cross-origin|crossorigin|sharedarraybuffer|crossoriginisolated/i.test(message)) {
-    return 'This browser session is missing the isolation features needed for local AI. Open the app through the local server instead of a file preview.';
+    return 'This browser session is missing required isolation features. Open the app through the local server instead of a file preview.';
   }
 
   if (/quota|opfs|storage|disk/i.test(message)) {
-    return 'Browser storage is full for local model files. Clear some site data and retry local model initialization.';
+    return 'Browser storage is full for engine files. Clear some site data and retry initialization.';
   }
 
   if (/429|too many requests|rate limit/i.test(message)) {
@@ -132,11 +132,11 @@ export const formatRunAnywhereError = (error: unknown) => {
   }
 
   if (/out of memory|memory/i.test(message)) {
-    return 'The browser ran out of memory while loading the local model. Close heavy tabs and try again.';
+    return 'The browser ran out of memory while loading the engine. Close heavy tabs and try again.';
   }
 
   if (/download|network|fetch/i.test(message)) {
-    return 'The local model could not be downloaded or loaded in this browser session. Refresh and try again.';
+    return 'The engine could not be downloaded or loaded in this browser session. Refresh and try again.';
   }
 
   return message;
@@ -662,7 +662,7 @@ const normalizeResult = (
   const emailSource = raw.follow_up_email ?? raw.followUpEmail;
 
   if (!summary) {
-    throw new Error('RunAnywhere did not return the required `summary` field.');
+    throw new Error('The engine response did not include the required `summary` field.');
   }
 
   const followUpEmail = typeof emailSource === 'string' ? emailSource.trim() : '';
@@ -708,7 +708,7 @@ const normalizeResult = (
     notes,
     followUpEmail,
     meta: {
-      engine: 'RunAnywhere SDK',
+      engine: 'Core Engine',
       runtime,
       sourceType,
       sourceLabel,
@@ -731,7 +731,7 @@ const getAccelerationRuntime = (llamaModule: Record<string, unknown>): Inference
 const ensureModelReady = async (onProgress?: ProgressCallback) => {
   if (!modelPromise) {
     modelPromise = (async () => {
-      reportProgress(onProgress, 'Loading RunAnywhere SDK', 12);
+      reportProgress(onProgress, 'Loading processing engine', 12);
 
       const { core, llama } = await loadModules();
       const detectCapabilities = core.detectCapabilities as
@@ -768,23 +768,23 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
         | undefined;
 
       if (!RunAnywhere || !ModelManager || !LlamaCPP) {
-        throw new Error('RunAnywhere Web SDK exports were not available.');
+        throw new Error('Engine SDK exports were not available.');
       }
 
       let capabilities: { hasWebGPU?: boolean; isCrossOriginIsolated?: boolean; hasOPFS?: boolean } | null = null;
       if (detectCapabilities) {
-        reportProgress(onProgress, 'Checking browser AI capabilities', 16);
+        reportProgress(onProgress, 'Checking browser capabilities', 16);
         capabilities = await detectCapabilities();
         if (capabilities.isCrossOriginIsolated === false) {
           reportProgress(onProgress, 'Cross-origin isolation unavailable, using limited compatibility mode', 18);
         } else if (capabilities.hasWebGPU) {
-          reportProgress(onProgress, 'WebGPU available for faster local inference', 18);
+          reportProgress(onProgress, 'WebGPU available for faster processing', 18);
         } else if (capabilities.hasOPFS === false) {
           reportProgress(onProgress, 'Persistent browser storage unavailable, using session-only cache', 18);
         }
       }
 
-      reportProgress(onProgress, 'Initializing RunAnywhere core', 20);
+      reportProgress(onProgress, 'Initializing engine core', 20);
       await RunAnywhere.initialize({
         environment: import.meta.env.PROD
           ? (SDKEnvironment?.Production ?? 'production')
@@ -874,7 +874,7 @@ const ensureModelReady = async (onProgress?: ProgressCallback) => {
         if (!selectedModel) {
           throw lastError instanceof Error
             ? lastError
-            : new Error('All local model candidates failed to download or load.');
+            : new Error('All engine candidates failed to download or load.');
         }
 
         activeModelCandidate = selectedModel;
@@ -900,14 +900,14 @@ export const warmupLocalModel = async ({
   onProgress?: ProgressCallback;
 } = {}): Promise<WarmupResult> => {
   await ensureModelReady(onProgress);
-  reportProgress(onProgress, `RunAnywhere ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`, 100);
+  reportProgress(onProgress, `Engine ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`, 100);
 
   return {
     ready: true,
-    engineLabel: `RunAnywhere SDK - ${activeModelCandidate.name}`,
+    engineLabel: `Core Engine - ${activeModelCandidate.name}`,
     runtimeLabel: runtime.toUpperCase(),
     runtime,
-    status: `RunAnywhere ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`,
+    status: `Engine ready on ${runtime.toUpperCase()} (${activeModelCandidate.name})`,
   };
 };
 
@@ -939,7 +939,7 @@ export async function generateLocalText(
     | undefined;
 
   if (!TextGeneration) {
-    throw new Error('RunAnywhere text generation module was not available.');
+    throw new Error('Text generation module was not available.');
   }
 
   const { stream, result, cancel } = await TextGeneration.generateStream(prompt, {
@@ -1002,7 +1002,7 @@ export async function runLocalAI(prompt: string, { signal }: { signal?: AbortSig
 
   const preview = outputText.replace(/\s+/g, ' ').trim().slice(0, 220);
   throw new Error(
-    `RunAnywhere returned non-JSON output. Try again with shorter input. Preview: ${preview}${
+    `Engine returned non-JSON output. Try again with shorter input. Preview: ${preview}${
       outputText.length > preview.length ? '...' : ''
     }`,
   );
@@ -1032,7 +1032,7 @@ export const answerCopilotChat = async ({
     .map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`)
     .join('\n');
 
-  const prompt = `You are Local AI Copilot running on-device.
+  const prompt = `You are the content assistant for this workspace.
 Answer clearly and naturally.
 
 Rules:
@@ -1085,19 +1085,19 @@ export const generateCopilotResponse = async ({
     };
   }
 
-  reportProgress(onProgress, 'Preparing structured RunAnywhere prompt', 28);
+  reportProgress(onProgress, 'Preparing structured prompt', 28);
   const preparedContent = compressSourceText(trimmed);
   if (preparedContent !== trimmed) {
     reportProgress(onProgress, 'Condensing long source for faster local inference', 38);
   }
 
   const prompt = buildRunAnywherePrompt({ content: preparedContent, mode, sourceType });
-  reportProgress(onProgress, 'Generating JSON with RunAnywhere', 62);
+  reportProgress(onProgress, 'Generating structured output', 62);
 
   const raw = await runLocalAI(prompt, { signal });
   const normalized = normalizeResult(raw, { sourceType, sourceLabel });
   writeCache(cacheKey, normalized);
-  reportProgress(onProgress, 'RunAnywhere generation complete', 100);
+  reportProgress(onProgress, 'Generation complete', 100);
   return normalized;
 };
 

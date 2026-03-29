@@ -12,8 +12,7 @@ export const SummaryTab: React.FC = () => {
 
   return (
     <div className="space-y-10">
-      {/* Executive Summary */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative"
@@ -36,8 +35,7 @@ export const SummaryTab: React.FC = () => {
         </div>
       </motion.section>
 
-      {/* Key Takeaways */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -48,7 +46,7 @@ export const SummaryTab: React.FC = () => {
           </div>
           Key Points
         </h3>
-        
+
         <div className="grid gap-4">
           {result.keyPoints.map((takeaway, i) => (
             <motion.div

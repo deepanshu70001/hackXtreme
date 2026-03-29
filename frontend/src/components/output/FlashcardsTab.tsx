@@ -19,7 +19,7 @@ export const FlashcardsTab: React.FC = () => {
           Flashcards
         </h3>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setFlippedIndex(null)}
             className="p-2 hover:bg-white/5 rounded-xl text-text-secondary hover:text-white transition-all"
           >
@@ -43,10 +43,9 @@ export const FlashcardsTab: React.FC = () => {
               <motion.div
                 initial={false}
                 animate={{ rotateY: flippedIndex === i ? 180 : 0 }}
-                transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+                transition={{ duration: 0.6, type: 'spring', stiffness: 260, damping: 20 }}
                 className="relative w-full h-full preserve-3d"
               >
-                {/* Front */}
                 <div className="absolute inset-0 backface-hidden glass rounded-[32px] p-6 flex flex-col items-center justify-center text-center border border-white/10 group-hover:border-accent-tertiary/30 transition-colors">
                   <div className="absolute top-4 left-4 text-[10px] font-bold text-accent-tertiary uppercase tracking-widest opacity-50">Question</div>
                   <p className="text-sm font-bold text-white leading-relaxed">
@@ -57,8 +56,7 @@ export const FlashcardsTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Back */}
-                <div 
+                <div
                   className="absolute inset-0 backface-hidden glass rounded-[32px] p-6 flex flex-col items-center justify-center text-center border border-accent-tertiary/30 bg-accent-tertiary/5"
                   style={{ transform: 'rotateY(180deg)' }}
                 >

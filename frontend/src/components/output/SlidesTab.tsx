@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Presentation, Layout, List, Sparkles } from 'lucide-react';
+import { Presentation, Layout, List, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const SlidesTab: React.FC = () => {
@@ -37,15 +37,13 @@ export const SlidesTab: React.FC = () => {
               transition={{ delay: i * 0.1 }}
               className="group relative flex flex-col gap-6"
             >
-              {/* Slide Number Indicator */}
               <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-8 glass rounded-full flex items-center justify-center text-[10px] font-black text-accent-primary border border-accent-primary/30 z-20">
                 {i + 1}
               </div>
 
               <div className="glass rounded-[40px] p-10 border border-white/5 hover:border-accent-primary/30 transition-all shadow-2xl overflow-hidden relative">
-                {/* Decorative Elements */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-accent-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-accent-primary/10 transition-colors" />
-              
+
                 <div className="relative z-10 space-y-8">
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-white/5 rounded-xl text-text-secondary">
@@ -74,11 +72,10 @@ export const SlidesTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Slide Footer */}
                 <div className="mt-10 pt-6 border-t border-white/5 flex items-center justify-between opacity-50">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-3 h-3 text-accent-primary" />
-                    <span className="text-[9px] font-bold uppercase tracking-widest">AI Generated Slide</span>
+                    <FileText className="w-3 h-3 text-accent-primary" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Slide Draft</span>
                   </div>
                   <span className="text-[9px] font-mono">0{i + 1} / 0{result.slides.length}</span>
                 </div>

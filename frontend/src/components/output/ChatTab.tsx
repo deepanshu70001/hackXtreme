@@ -148,10 +148,10 @@ export const ChatTab: React.FC = () => {
             <span className="rounded-xl bg-accent-tertiary/20 p-2 text-accent-tertiary">
               <Bot className="h-5 w-5" />
             </span>
-            Local Chatbot
+            Chat Assistant
           </h3>
           <p className="mt-2 text-sm text-text-secondary">
-            Ask about your content or any general day-to-day question. Responses stay on-device.
+            Ask about your content or any general day-to-day question.
           </p>
         </div>
         <div
@@ -216,7 +216,7 @@ export const ChatTab: React.FC = () => {
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-accent-tertiary" />
-                  Thinking locally...
+                  Thinking...
                 </div>
               </div>
             </div>

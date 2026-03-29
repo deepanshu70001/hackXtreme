@@ -1,6 +1,6 @@
 import React, { useDeferredValue } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ShieldCheck, FileText, Youtube, Type, Sparkles, Loader2, Mic, Trash2, Cpu, ScanSearch, Square } from 'lucide-react';
+import { FileText, Youtube, Type, Sparkles, Loader2, Trash2, Cpu, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useModelStore } from '../../store/useModelStore';
 import { useLocalCopilot } from '../../hooks/useLocalCopilot';
@@ -35,15 +35,12 @@ export const InputPanel: React.FC = () => {
   const handleProcess = async () => {
     try {
       await processInput();
-    } catch {
-      // Error state is already pushed into the store for the UI banner.
-    }
+    } catch {}
   };
 
   return (
-    <div className="flex h-full min-h-[28rem] flex-col gap-5 overflow-y-auto p-4 custom-scrollbar no-scrollbar sm:min-h-[32rem] md:gap-6 md:p-8">
-      {/* Header */}
-      <motion.div 
+    <div className="flex h-full min-h-[28rem] flex-col gap-5 overflow-y-auto p-4 custom-scrollbar no-scrollbar sm:min-h-[32rem] md:gap-6 md:p-8 lg:min-h-0">
+      <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         className="flex flex-col gap-3"
@@ -58,7 +55,7 @@ export const InputPanel: React.FC = () => {
             Input Source
           </h2>
           <p className="max-w-xl pl-4 text-sm leading-7 text-text-secondary">
-            Drop in notes, PDFs, or transcripts and keep the whole workflow on-device. The source controls now stay readable instead of collapsing into narrow columns.
+            Add notes, PDFs, or transcripts, then generate a clean structured output from your source content.
           </p>
         </div>
       </motion.div>
@@ -68,8 +65,7 @@ export const InputPanel: React.FC = () => {
           <ModeSelector />
         </div>
 
-        {/* Source Selection */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -82,7 +78,7 @@ export const InputPanel: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <span className="block text-xs font-bold uppercase tracking-widest text-white">PDF Document</span>
-                <span className="block text-[11px] text-text-secondary">Extract text locally from uploaded files.</span>
+                <span className="block text-[11px] text-text-secondary">Upload a PDF and extract text automatically.</span>
               </div>
             </div>
             <PDFUpload
@@ -125,8 +121,8 @@ export const InputPanel: React.FC = () => {
                 <Cpu className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <span className="block text-xs font-bold uppercase tracking-widest text-white">Local Runtime</span>
-                <span className="block text-[11px] text-text-secondary">Current browser AI status and fallback details.</span>
+                <span className="block text-xs font-bold uppercase tracking-widest text-white">System Status</span>
+                <span className="block text-[11px] text-text-secondary">Current engine, runtime, and generation state.</span>
               </div>
             </div>
             <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2">
@@ -149,8 +145,7 @@ export const InputPanel: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Input Area */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -165,7 +160,7 @@ export const InputPanel: React.FC = () => {
               <Type className="w-3.5 h-3.5 text-white/70" />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Editor</span>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={clearWorkspace}
@@ -175,9 +170,6 @@ export const InputPanel: React.FC = () => {
               >
                 <Trash2 className="w-4 h-4" />
               </button>
-              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2 text-text-secondary/50 cursor-not-allowed" title="Voice input coming soon">
-                <Mic className="w-4 h-4" />
-              </div>
             </div>
           </div>
 
@@ -191,8 +183,8 @@ export const InputPanel: React.FC = () => {
                   setSource('text', 'Manual paste');
                 }
               }}
-              placeholder="Paste notes, transcript, or type here. If empty, generation uses the selected source file."
-              className="custom-scrollbar h-full w-full resize-none bg-transparent text-sm leading-8 text-white/90 focus:outline-none placeholder:text-text-secondary/30 md:text-base font-light"
+              placeholder="Paste notes or transcript here. If empty, generation uses the selected source file."
+              className="custom-scrollbar h-full w-full resize-none bg-transparent text-sm leading-7 text-white/90 focus:outline-none placeholder:text-text-secondary/30 md:text-base font-light"
             />
           </div>
 
@@ -229,13 +221,12 @@ export const InputPanel: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 text-[9px] font-semibold text-text-secondary uppercase tracking-wider">
-              <ShieldCheck className="w-3.5 h-3.5 opacity-70" />
-              On-device Processing
+              <span className="h-1.5 w-1.5 rounded-full bg-accent-tertiary/80" />
+              Secure Processing
             </div>
           </div>
         </motion.div>
 
-        {/* Generate Button */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -270,24 +261,9 @@ export const InputPanel: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-            <span>{isProcessing ? 'Stop Generation' : 'Generate Insights'}</span>
+            <span>{isProcessing ? 'Stop Generation' : 'Generate Output'}</span>
           </div>
         </motion.button>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="glass flex items-start gap-4 rounded-[28px] p-5"
-        >
-          <div className="p-2 bg-white/5 rounded-xl text-accent-tertiary">
-            <ScanSearch className="w-5 h-5" />
-          </div>
-          <div className="space-y-1 text-sm text-text-secondary leading-relaxed">
-            <p className="text-white font-semibold">Hackathon MVP scope</p>
-            <p>Summary, action items, follow-up emails, flashcards, and PPT outline are generated from text, PDF, and pasted YouTube transcripts using only the browser SDK.</p>
-          </div>
-        </motion.div>
       </div>
     </div>
   );

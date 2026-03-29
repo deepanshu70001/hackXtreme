@@ -3,8 +3,7 @@
 @theme {
   --font-sans: "Inter", "Space Grotesk", "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
-  /* Deep, premium monochromatic dark theme with subtle accents */
+
   --color-bg-primary: #050505;
   --color-bg-secondary: #0a0a0a;
   --color-accent-primary: #ffffff;
@@ -99,7 +98,6 @@
   animation: shimmer 2s infinite;
 }
 
-/* Custom scrollbar for content areas */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }

@@ -15,8 +15,8 @@ interface ModelStore {
 export const useModelStore = create<ModelStore>((set) => ({
   isReady: false,
   progress: 5,
-  status: 'Checking local runtime',
-  engineLabel: 'Booting local AI',
+  status: 'Checking runtime',
+  engineLabel: 'Starting engine',
   runtimeLabel: 'Pending',
   setReady: (isReady) => set({ isReady }),
   setProgress: (progress) => set({ progress }),

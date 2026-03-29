@@ -31,7 +31,7 @@ export const buildRunAnywherePrompt = ({
   content: string;
   mode: Mode;
   sourceType: SourceType;
-}) => `You are Local AI Content Copilot.
+}) => `You are the content assistant for this workspace.
 
 Mode: ${mode.toUpperCase()} - ${MODE_GUIDANCE[mode]}
 Source: ${sourceType.toUpperCase()} - ${SOURCE_GUIDANCE[sourceType]}
