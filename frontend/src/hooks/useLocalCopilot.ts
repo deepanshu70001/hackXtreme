@@ -16,7 +16,19 @@ const MAX_REFINEMENT_MS_COLD_START = 240_000;
 const QUICK_FALLBACK_ERROR_PATTERN = /download|network|fetch|unavailable|cross-origin|module script/i;
 
 export const useLocalCopilot = () => {
-  const { input, sourceContent, mode, sourceType, sourceLabel, setProcessing, setResult, addToHistory, setError } =
+  const {
+    input,
+    sourceContent,
+    generationRequest,
+    mode,
+    sourceType,
+    sourceLabel,
+    setProcessing,
+    setResult,
+    addToHistory,
+    setError,
+    setGenerationRequest,
+  } =
     useAppStore();
   const { isReady, setReady, setProgress, setStatus, setEngine } = useModelStore();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -130,6 +142,7 @@ export const useLocalCopilot = () => {
         mode,
         sourceType,
         sourceLabel,
+        focusRequest: generationRequest.trim() || undefined,
         onProgress: (status, progress) => {
           setStatus(status);
           setProgress(progress);
@@ -158,6 +171,7 @@ export const useLocalCopilot = () => {
           mode,
           sourceType,
           sourceLabel,
+          focusRequest: generationRequest.trim() || undefined,
         });
         storedResult = timeoutFallback;
         startTransition(() => {
@@ -176,6 +190,7 @@ export const useLocalCopilot = () => {
           mode,
           sourceType,
           sourceLabel,
+          focusRequest: generationRequest.trim() || undefined,
         });
         storedResult = quickFallback;
         startTransition(() => {
@@ -203,6 +218,7 @@ export const useLocalCopilot = () => {
         addToHistory(storedResult.title || `${storedResult.meta.sourceLabel} / ${mode}`, storedResult);
       }
 
+      setGenerationRequest('');
       setProcessing(false);
     }
   };

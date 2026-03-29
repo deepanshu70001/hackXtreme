@@ -1,4 +1,4 @@
-import React, { useDeferredValue } from 'react';
+import React, { useDeferredValue, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { FileText, Youtube, Type, Sparkles, Loader2, Trash2, Cpu, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,7 @@ export const InputPanel: React.FC = () => {
   const {
     input,
     sourceContent,
+    generationTrigger,
     setInput,
     setSourceContent,
     sourceType,
@@ -37,6 +38,11 @@ export const InputPanel: React.FC = () => {
       await processInput();
     } catch {}
   };
+
+  useEffect(() => {
+    if (generationTrigger <= 0) return;
+    void handleProcess();
+  }, [generationTrigger]);
 
   return (
     <div className="flex h-full min-h-[28rem] flex-col gap-5 overflow-y-auto p-4 custom-scrollbar no-scrollbar sm:min-h-[32rem] md:gap-6 md:p-8 lg:min-h-0">

@@ -28,16 +28,19 @@ export const buildRunAnywherePrompt = ({
   mode,
   sourceType,
   speedProfile = 'balanced',
+  focusRequest,
 }: {
   content: string;
   mode: Mode;
   sourceType: SourceType;
   speedProfile?: 'fast' | 'balanced';
+  focusRequest?: string;
 }) => `You are the content assistant for this workspace.
 
 Mode: ${mode.toUpperCase()} - ${MODE_GUIDANCE[mode]}
 Source: ${sourceType.toUpperCase()} - ${SOURCE_GUIDANCE[sourceType]}
 Generation profile: ${speedProfile === 'fast' ? 'FAST (prioritize quick response time)' : 'BALANCED (prioritize richer structure)'}
+${focusRequest ? `User request focus: ${focusRequest}` : 'User request focus: Full structured output'}
 
 Output rules:
 - Return JSON only.
@@ -51,6 +54,13 @@ Output rules:
 - flashcards: max ${speedProfile === 'fast' ? '3' : '4'} items.
 - slides: max ${speedProfile === 'fast' ? '3' : '4'} items.
 - If there are no deadlines, return [].
+${focusRequest
+  ? `- Prioritize only what the user asked for in "User request focus".
+- For sections not needed by the request, keep them intentionally minimal:
+  key_points/action_items/deadlines/flashcards/slides -> []
+  follow_up_email -> ""
+  summary -> one concise line tied to the request.`
+  : ''}
 
 Return strictly valid JSON that matches:
 ${OUTPUT_JSON_SHAPE}

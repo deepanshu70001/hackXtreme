@@ -15,6 +15,8 @@ export const useAppStore = create<AppState>()(
       mode: 'work',
       input: '',
       sourceContent: '',
+      generationRequest: '',
+      generationTrigger: 0,
       sourceType: 'text',
       sourceLabel: 'Manual paste',
       youtubeTimeline: [],
@@ -25,6 +27,11 @@ export const useAppStore = create<AppState>()(
       setMode: (mode: Mode) => set({ mode }),
       setInput: (input: string) => set({ input }),
       setSourceContent: (sourceContent: string) => set({ sourceContent }),
+      setGenerationRequest: (generationRequest: string) => set({ generationRequest }),
+      triggerGenerationFromOutput: () =>
+        set((state) => ({
+          generationTrigger: state.generationTrigger + 1,
+        })),
       setSource: (sourceType: SourceType, sourceLabel = 'Manual paste') =>
         set((state) => ({
           sourceType,
@@ -39,6 +46,8 @@ export const useAppStore = create<AppState>()(
         set({
           input: '',
           sourceContent: '',
+          generationRequest: '',
+          generationTrigger: 0,
           sourceType: 'text',
           sourceLabel: 'Manual paste',
           youtubeTimeline: [],
@@ -80,6 +89,8 @@ export const useAppStore = create<AppState>()(
         set({
           input: '',
           sourceContent: '',
+          generationRequest: '',
+          generationTrigger: 0,
           result: item.result,
           sourceType: item.sourceType,
           sourceLabel: item.result.meta.sourceLabel,

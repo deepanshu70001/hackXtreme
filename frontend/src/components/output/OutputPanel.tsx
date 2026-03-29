@@ -15,10 +15,21 @@ import { motion, AnimatePresence } from 'motion/react';
 
 type TabId = 'summary' | 'timeline' | 'actions' | 'flashcards' | 'neurallink' | 'slides' | 'email' | 'chat';
 
+const TAB_FOCUS_REQUESTS: Record<Exclude<TabId, 'chat'>, string> = {
+  summary: 'Generate only a concise summary, key points, and notes.',
+  timeline: 'Generate only timeline-oriented insights and sequence highlights.',
+  actions: 'Generate only action items and deadlines with clear priority.',
+  flashcards: 'Generate only high-quality flashcards for revision.',
+  neurallink: 'Generate only concept-link outputs for neural link: concise summary, key points, and actionable nodes.',
+  slides: 'Generate only a clean slide outline with titles and bullet points.',
+  email: 'Generate only a professional follow-up email draft.',
+};
+
 export const OutputPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [isCompactTabs, setIsCompactTabs] = useState(false);
-  const { result, isProcessing } = useAppStore();
+  const { result, isProcessing, input, sourceContent, setGenerationRequest, triggerGenerationFromOutput, setError } =
+    useAppStore();
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const tabs: { id: TabId; label: string; icon: any; color: string }[] = [
@@ -44,6 +55,26 @@ export const OutputPanel: React.FC = () => {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  const hasAnySource = input.trim().length > 0 || sourceContent.trim().length > 0;
+  const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label ?? 'Tab';
+  const canGenerateFocused = activeTab !== 'chat';
+
+  const generateForActiveTab = () => {
+    if (!canGenerateFocused || isProcessing) {
+      return;
+    }
+
+    if (!hasAnySource) {
+      setError('Add source content in Input Source before generating focused output.');
+      return;
+    }
+
+    const request = TAB_FOCUS_REQUESTS[activeTab as Exclude<TabId, 'chat'>];
+    setGenerationRequest(request);
+    setError(null);
+    triggerGenerationFromOutput();
+  };
 
   return (
     <div className="relative flex h-full min-h-[30rem] flex-col overflow-hidden bg-transparent sm:min-h-[34rem] lg:min-h-0">
@@ -86,6 +117,7 @@ export const OutputPanel: React.FC = () => {
                   {result ? (
                     <p className="text-sm text-text-secondary/70">
                       {result.meta.runtime.toUpperCase()} runtime / {result.meta.cached ? 'Loaded from recent cache' : 'Generated in this session'}
+                      {result.meta.focusRequest ? ' / Focused request active' : ''}
                     </p>
                   ) : (
                     <p className="text-sm text-text-secondary/70">
@@ -93,7 +125,19 @@ export const OutputPanel: React.FC = () => {
                     </p>
                   )}
                 </div>
-                {result ? <ExportButton /> : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  {canGenerateFocused && (
+                    <button
+                      type="button"
+                      onClick={generateForActiveTab}
+                      disabled={isProcessing || !hasAnySource}
+                      className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-white/90 transition-colors hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Generating...' : `Generate ${activeTabLabel}`}
+                    </button>
+                  )}
+                  {result ? <ExportButton /> : null}
+                </div>
               </div>
 
               {isProcessing && (

@@ -39,6 +39,7 @@ export interface ResultMeta {
   runtime: InferenceRuntime;
   sourceType: SourceType;
   sourceLabel: string;
+  focusRequest?: string;
   generatedAt: string;
   wordCount: number;
   charCount: number;
@@ -71,6 +72,8 @@ export interface AppState {
   mode: Mode;
   input: string;
   sourceContent: string;
+  generationRequest: string;
+  generationTrigger: number;
   sourceType: SourceType;
   sourceLabel: string;
   youtubeTimeline: YouTubeTimelineItem[];
@@ -81,6 +84,8 @@ export interface AppState {
   setMode: (mode: Mode) => void;
   setInput: (input: string) => void;
   setSourceContent: (content: string) => void;
+  setGenerationRequest: (request: string) => void;
+  triggerGenerationFromOutput: () => void;
   setSource: (sourceType: SourceType, sourceLabel?: string) => void;
   setYouTubeTimeline: (timeline: YouTubeTimelineItem[]) => void;
   setError: (error: string | null) => void;

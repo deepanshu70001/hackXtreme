@@ -16,6 +16,7 @@ interface GenerateOptions {
   mode: Mode;
   sourceType: SourceType;
   sourceLabel?: string;
+  focusRequest?: string;
   onProgress?: ProgressCallback;
   signal?: AbortSignal;
 }
@@ -25,6 +26,7 @@ interface QuickGenerateOptions {
   mode: Mode;
   sourceType: SourceType;
   sourceLabel?: string;
+  focusRequest?: string;
 }
 
 interface ChatHistoryTurn {
@@ -60,6 +62,7 @@ const CACHE_MAX_ENTRIES = 18;
 const MAX_SOURCE_CHARACTERS = 3800;
 const MAX_GENERATION_TOKENS_BALANCED = 512;
 const MAX_GENERATION_TOKENS_FAST = 320;
+const MAX_GENERATION_TOKENS_TARGETED = 220;
 const MAX_CHAT_CONTEXT_CHARACTERS = 3200;
 const MAX_CHAT_HISTORY_TURNS_BALANCED = 8;
 const MAX_CHAT_HISTORY_TURNS_FAST = 6;
@@ -216,8 +219,13 @@ const hashString = (value: string) => {
   return Math.abs(hash).toString(36);
 };
 
-const makeCacheKey = ({ content, mode, sourceType }: Pick<GenerateOptions, 'content' | 'mode' | 'sourceType'>) =>
-  `${CACHE_PREFIX}${mode}:${sourceType}:${hashString(content.trim())}`;
+const makeCacheKey = ({
+  content,
+  mode,
+  sourceType,
+  focusRequest,
+}: Pick<GenerateOptions, 'content' | 'mode' | 'sourceType' | 'focusRequest'>) =>
+  `${CACHE_PREFIX}${mode}:${sourceType}:${hashString(content.trim())}:${hashString((focusRequest ?? '').trim())}`;
 
 const isGenerationResult = (value: unknown): value is GenerationResult => {
   if (!value || typeof value !== 'object') {
@@ -469,15 +477,18 @@ const buildStrictJsonRecoveryPrompt = ({
   content,
   mode,
   sourceType,
+  focusRequest,
 }: {
   content: string;
   mode: Mode;
   sourceType: SourceType;
+  focusRequest?: string;
 }) => `Return only one valid JSON object and nothing else.
 Do not include markdown, code fences, explanations, or extra text.
 
 Mode: ${mode}
 Source type: ${sourceType}
+${focusRequest ? `User request focus: ${focusRequest}` : ''}
 
 Rules:
 - Use concise content.
@@ -546,12 +557,20 @@ const getDeviceProfile = (): DeviceProfile => {
   };
 };
 
-const selectGenerationPlan = (content: string): GenerationPlan => {
+const selectGenerationPlan = (content: string, focusRequest?: string): GenerationPlan => {
   const normalized = normalizeSourceText(content);
   const words = countWords(normalized);
+  const hasFocusedRequest = Boolean(focusRequest?.trim());
   const isShort =
     normalized.length <= FAST_PROFILE_CHAR_THRESHOLD ||
     words <= FAST_PROFILE_WORD_THRESHOLD;
+
+  if (hasFocusedRequest) {
+    return {
+      speedProfile: 'fast',
+      maxTokens: MAX_GENERATION_TOKENS_TARGETED,
+    };
+  }
 
   if (getDeviceProfile().constrained || isShort) {
     return {
@@ -569,12 +588,13 @@ const selectGenerationPlan = (content: string): GenerationPlan => {
 export const shouldAutoWarmupModel = () => !getDeviceProfile().constrained;
 
 export const shouldUseQuickDraftBeforeWarmup = (content: string) => {
-  if (modelReady) {
-    return false;
+  const device = getDeviceProfile();
+  if (device.constrained) {
+    // Mobile/constrained devices stay on quick draft to avoid UI hangs from heavy local inference.
+    return true;
   }
 
-  const device = getDeviceProfile();
-  if (!device.constrained) {
+  if (modelReady) {
     return false;
   }
 
@@ -673,6 +693,82 @@ const buildQuickDeadlines = (content: string) => {
     });
 };
 
+const buildQuickFollowUpEmail = ({
+  mode,
+  sourceLabel,
+  summary,
+  keyPoints,
+  actionItems,
+  focusRequest,
+}: {
+  mode: Mode;
+  sourceLabel: string;
+  summary: string;
+  keyPoints: string[];
+  actionItems: Array<{ task: string; priority: 'high' | 'medium' | 'low'; deadline?: string }>;
+  focusRequest?: string;
+}) => {
+  const subjectHint =
+    keyPoints[0]?.replace(/[.!?]+$/g, '').slice(0, 70) ||
+    summary.split(/[.!?]/)[0]?.trim().slice(0, 70) ||
+    sourceLabel;
+
+  const introByMode: Record<Mode, string> = {
+    study: 'Thanks for reviewing this material.',
+    work: 'Thanks for the update.',
+    meeting: 'Thanks for the meeting.',
+  };
+
+  const topPoints = keyPoints.slice(0, 3);
+  const actions = actionItems.slice(0, 3);
+  const requestLine = focusRequest?.trim()
+    ? `I focused this draft on: ${focusRequest.trim()}.`
+    : '';
+
+  const recapLines =
+    topPoints.length > 0
+      ? topPoints.map((point) => `- ${point}`)
+      : summary
+          .split(/[.!?]/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((line) => `- ${line}.`);
+
+  const actionLines =
+    actions.length > 0
+      ? actions.map(
+          (item) =>
+            `- ${item.task}${item.deadline ? ` (Deadline: ${item.deadline})` : ''}`,
+        )
+      : ['- No explicit action items were detected.'];
+
+  return [
+    `Subject: Follow-up - ${subjectHint}`,
+    '',
+    'Hi team,',
+    '',
+    introByMode[mode],
+    requestLine,
+    '',
+    'Quick recap:',
+    ...recapLines,
+    '',
+    'Next steps:',
+    ...actionLines,
+    '',
+    'Please reply with any corrections or ownership updates.',
+    '',
+    'Best regards,',
+    '[Your Name]',
+  ]
+    .filter((line, index, all) => {
+      if (line.length > 0) return true;
+      return all[index - 1] !== '';
+    })
+    .join('\n');
+};
+
 const deriveNotes = (summary: string, keyPoints: string[]) => {
   if (keyPoints.length > 0) {
     return keyPoints.slice(0, 4);
@@ -715,6 +811,7 @@ const buildQuickFallbackResult = ({
   mode,
   sourceType,
   sourceLabel = 'Manual paste',
+  focusRequest,
   engineLabel,
 }: QuickGenerateOptions & { engineLabel: string }): GenerationResult => {
   const quick = generateQuickCopilotResponse({
@@ -722,6 +819,7 @@ const buildQuickFallbackResult = ({
     mode,
     sourceType,
     sourceLabel,
+    focusRequest,
   });
 
   return {
@@ -738,6 +836,7 @@ export const generateQuickCopilotResponse = ({
   mode,
   sourceType,
   sourceLabel = 'Manual paste',
+  focusRequest,
 }: QuickGenerateOptions): GenerationResult => {
   const prepared = compressSourceText(content.trim());
   const summary = buildQuickSummary(prepared);
@@ -747,6 +846,14 @@ export const generateQuickCopilotResponse = ({
   const notes = deriveNotes(summary, keyPoints);
   const flashcards = deriveFlashcards(summary, keyPoints);
   const slides = deriveSlides(summary, keyPoints);
+  const followUpEmail = buildQuickFollowUpEmail({
+    mode,
+    sourceLabel,
+    summary,
+    keyPoints,
+    actionItems,
+    focusRequest,
+  });
 
   return {
     title: `${sourceLabel} / Quick Draft`,
@@ -757,12 +864,13 @@ export const generateQuickCopilotResponse = ({
     flashcards,
     slides,
     notes,
-    followUpEmail: 'Quick draft does not include an email. Run the full refinement.',
+    followUpEmail,
     meta: {
       engine: 'Quick Local Draft',
       runtime,
       sourceType,
       sourceLabel,
+      focusRequest: focusRequest?.trim() || undefined,
       generatedAt: new Date().toISOString(),
       wordCount: summary.split(/\s+/).length + keyPoints.join(' ').split(/\s+/).length,
       charCount: summary.length + keyPoints.join('').length,
@@ -776,15 +884,17 @@ const normalizeResult = (
   {
     sourceType,
     sourceLabel,
+    focusRequest,
   }: {
     sourceType: SourceType;
     sourceLabel: string;
+    focusRequest?: string;
   },
 ): GenerationResult => {
   const title = typeof raw.title === 'string' && raw.title.trim().length > 0 
     ? raw.title.trim() 
     : `${sourceLabel} / ${sourceType}`;
-  const summary = typeof raw.summary === 'string' ? raw.summary.trim() : '';
+  const summaryFromModel = typeof raw.summary === 'string' ? raw.summary.trim() : '';
   const keyPointsSource = raw.key_points ?? raw.keyPoints;
   const actionItemsSource = raw.action_items ?? raw.actionItems;
   const deadlinesSource = raw.deadlines;
@@ -831,10 +941,14 @@ const normalizeResult = (
   const flashcardsSource = raw.flashcards;
   const slidesSource = raw.slides;
   const emailSource = raw.follow_up_email ?? raw.followUpEmail;
-
-  if (!summary) {
-    throw new Error('The engine response did not include the required `summary` field.');
+  const summaryFallbackParts: string[] = [];
+  if (focusRequest?.trim()) {
+    summaryFallbackParts.push(`Focused output for: ${focusRequest.trim()}.`);
   }
+  if (keyPoints.length > 0) {
+    summaryFallbackParts.push(keyPoints.slice(0, 2).join(' '));
+  }
+  const summary = summaryFromModel || summaryFallbackParts.join(' ').trim() || 'Focused result generated.';
 
   const followUpEmail = typeof emailSource === 'string' ? emailSource.trim() : '';
 
@@ -883,6 +997,7 @@ const normalizeResult = (
       runtime,
       sourceType,
       sourceLabel,
+      focusRequest: focusRequest?.trim() || undefined,
       generatedAt: new Date().toISOString(),
       wordCount: summary.split(/\s+/).length + keyPoints.join(' ').split(/\s+/).length,
       charCount: summary.length + keyPoints.join('').length,
@@ -1265,15 +1380,17 @@ export const generateCopilotResponse = async ({
   mode,
   sourceType,
   sourceLabel = 'Manual paste',
+  focusRequest,
   onProgress,
   signal,
 }: GenerateOptions): Promise<GenerationResult> => {
   const trimmed = content.trim();
+  const trimmedFocusRequest = focusRequest?.trim() ?? '';
   if (!trimmed) {
     throw new Error('Add some content before generating insights.');
   }
 
-  const cacheKey = makeCacheKey({ content: trimmed, mode, sourceType });
+  const cacheKey = makeCacheKey({ content: trimmed, mode, sourceType, focusRequest: trimmedFocusRequest });
   const cached = readCache(cacheKey);
   if (cached) {
     reportProgress(onProgress, 'Loaded cached result from this device', 100);
@@ -1294,12 +1411,13 @@ export const generateCopilotResponse = async ({
       mode,
       sourceType,
       sourceLabel,
+      focusRequest: trimmedFocusRequest || undefined,
     });
     reportProgress(onProgress, 'Quick draft ready', 100);
     return quickDraft;
   }
 
-  const plan = selectGenerationPlan(trimmed);
+  const plan = selectGenerationPlan(trimmed, trimmedFocusRequest);
   reportProgress(onProgress, 'Preparing structured prompt', 28);
   const preparedContent = compressSourceText(trimmed);
   if (preparedContent !== trimmed) {
@@ -1311,6 +1429,7 @@ export const generateCopilotResponse = async ({
     mode,
     sourceType,
     speedProfile: plan.speedProfile,
+    focusRequest: trimmedFocusRequest || undefined,
   });
   reportProgress(onProgress, 'Generating structured output', 62);
 
@@ -1332,6 +1451,7 @@ export const generateCopilotResponse = async ({
       content: preparedContent,
       mode,
       sourceType,
+      focusRequest: trimmedFocusRequest || undefined,
     });
 
     try {
@@ -1352,6 +1472,7 @@ export const generateCopilotResponse = async ({
         mode,
         sourceType,
         sourceLabel,
+        focusRequest: trimmedFocusRequest || undefined,
         engineLabel: 'Quick Local Draft (JSON Fallback)',
       });
       writeCache(cacheKey, fallback);
@@ -1362,7 +1483,11 @@ export const generateCopilotResponse = async ({
 
   let normalized: GenerationResult;
   try {
-    normalized = normalizeResult(raw, { sourceType, sourceLabel });
+    normalized = normalizeResult(raw, {
+      sourceType,
+      sourceLabel,
+      focusRequest: trimmedFocusRequest || undefined,
+    });
   } catch (error) {
     if (!isStructuredOutputError(error)) {
       throw error;
@@ -1374,6 +1499,7 @@ export const generateCopilotResponse = async ({
       mode,
       sourceType,
       sourceLabel,
+      focusRequest: trimmedFocusRequest || undefined,
       engineLabel: 'Quick Local Draft (Schema Fallback)',
     });
     writeCache(cacheKey, fallback);
@@ -1386,6 +1512,7 @@ export const generateCopilotResponse = async ({
     meta: {
       ...normalized.meta,
       engine: plan.speedProfile === 'fast' ? 'Core Engine (Fast Profile)' : normalized.meta.engine,
+      focusRequest: trimmedFocusRequest || undefined,
     },
   };
 
